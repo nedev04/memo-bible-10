@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPracticeSteps, MAX_PER_VERSE, PRACTICE_OPTIONS, windowOf } from './practice'
+import { buildPracticeSteps, MAX_PER_VERSE, planVersePractice, PRACTICE_OPTIONS, windowOf } from './practice'
 
 const keys = Array.from({ length: 12 }, (_, i) => `rst:psa:90:${i + 1}`)
 const option = (kind: string) => PRACTICE_OPTIONS.find((o) => o.kind === kind)!
@@ -49,5 +49,33 @@ describe('тренировка', () => {
     expect(option('reveal').scored).toBe(false)
     expect(option('partial').scored).toBe(false)
     expect(PRACTICE_OPTIONS.filter((o) => o.scored)).toHaveLength(6)
+  })
+
+  it('planVersePractice генерирует 5–8 разнообразных упражнений, подогнанных под силу стиха', () => {
+    const makeVerse = (strength: number): any => ({
+      key: 'rst:mat:5:1', translation: 'rst', book: 'mat', chapter: 5, verse: 1,
+      addedAt: 0, strength, stage: 0, nextReviewAt: 0, updatedAt: 0,
+      lastUpAt: null, lastPracticedAt: null, lastScore: null, lapses: 0,
+    })
+
+    // Новый стих (сила 0): 7-8 упражнений, начинается с раскрытия
+    const v0Steps = planVersePractice([makeVerse(0)], [makeVerse(0)], seeded(1))
+    expect(v0Steps.length).toBeGreaterThanOrEqual(5)
+    expect(v0Steps.length).toBeLessThanOrEqual(8)
+    expect(v0Steps[0].kind).toBe('reveal')
+    expect(v0Steps.some((s) => s.kind === 'partial')).toBe(true)
+    expect(v0Steps.some((s) => s.kind === 'fillGaps')).toBe(true)
+
+    // Сила 3 (средний уровень): 7-8 упражнений
+    const v3Steps = planVersePractice([makeVerse(3)], [makeVerse(3)], seeded(2))
+    expect(v3Steps.length).toBeGreaterThanOrEqual(5)
+    expect(v3Steps.length).toBeLessThanOrEqual(8)
+    expect(v3Steps.some((s) => s.kind === 'firstLetters')).toBe(true)
+
+    // Сила 6 (высокий уровень): 7 упражнений, включает ввод по памяти и сложное "где написано"
+    const v6Steps = planVersePractice([makeVerse(6)], [makeVerse(6)], seeded(3))
+    expect(v6Steps.length).toBeGreaterThanOrEqual(5)
+    expect(v6Steps.length).toBeLessThanOrEqual(8)
+    expect(v6Steps.some((s) => s.kind === 'typing')).toBe(true)
   })
 })

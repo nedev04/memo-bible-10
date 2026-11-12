@@ -1,132 +1,155 @@
-import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { compareVerses, formatRange, groupVerses, parseKey } from '../bible/refs'
-import { liveVerses } from '../db/db'
-import LessonRunner from '../lessons/LessonRunner'
+import { liveVerses, saveLesson } from '../db/db'
+import LessonRunner, { type LessonSummary } from '../lessons/LessonRunner'
 import { loadAiGaps } from '../lessons/aiGaps'
 import { loadTexts } from '../lessons/loadTexts'
-import { buildPracticeSteps, PRACTICE_OPTIONS, type PracticeOption } from '../lessons/practice'
+import { planVersePractice } from '../lessons/practice'
 import { recordStep } from '../lessons/record'
 import type { LessonStep, VerseText } from '../lessons/types'
+import type { VerseState } from '../types'
 
-interface Run {
+interface LoadedPractice {
   steps: LessonStep[]
   texts: Map<string, VerseText>
-  round: number
 }
 
 /**
- * Свободная практика: выбранные стихи и упражнение, которое вы выбираете сами.
- * Результат засчитывается по тем же правилам, что и в уроке: меняется сила стихов и начисляется опыт.
+ * Персональная тренировка отдельного стиха (или выбранного отрывка).
+ * Упражнения подобраны автоматически под текущий уровень силы стиха (5–8 разнообразных заданий),
+ * как в обычном уроке, без промежуточного экрана выбора упражнений.
  */
 export default function PracticePage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const verses = useLiveQuery(() => liveVerses(), [])
-  const [run, setRun] = useState<Run | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [round, setRound] = useState(0)
+  const [state, setState] = useState<'loading' | 'empty' | 'error' | LoadedPractice>('loading')
+  const [label, setLabel] = useState('')
+  const saving = useRef<Promise<void>>(Promise.resolve())
 
-  const wanted = useMemo(() => (params.get('keys') ?? '').split(',').filter(Boolean), [params])
+  const rawKeys = useMemo(() => (params.get('keys') ?? '').split(',').filter(Boolean), [params])
 
-  // Только существующие стихи, по порядку Библии
-  const keys = useMemo(() => {
-    const live = new Set((verses ?? []).map((v) => v.key))
-    return wanted
-      .filter((k) => live.has(k))
-      .map((k) => ({ key: k, ref: parseKey(k) }))
-      .filter((x): x is { key: string; ref: NonNullable<ReturnType<typeof parseKey>> } => x.ref !== null)
-      .sort((a, b) => compareVerses(a.ref, b.ref))
-      .map((x) => x.key)
-  }, [wanted, verses])
+  useEffect(() => {
+    let alive = true
+    setState('loading')
 
-  if (!verses) return null
+    ;(async () => {
+      try {
+        const allVerses: VerseState[] = await liveVerses()
+        const liveMap = new Map(allVerses.map((v) => [v.key, v]))
 
-  const label = groupVerses(keys.map(parseKey).filter((p): p is NonNullable<typeof p> => p !== null)).map(formatRange).join(', ')
+        // Оставляем только существующие стихи
+        const targetKeys = rawKeys
+          .filter((k) => liveMap.has(k))
+          .map((k) => ({ key: k, ref: parseKey(k) }))
+          .filter((x): x is { key: string; ref: NonNullable<ReturnType<typeof parseKey>> } => x.ref !== null)
+          .sort((a, b) => compareVerses(a.ref, b.ref))
+          .map((x) => x.key)
 
-  async function start(option: PracticeOption, levelIndex: number) {
-    setError(null)
-    setBusy(true)
-    try {
-      const steps = buildPracticeSteps(option, levelIndex, keys)
-      const texts = await loadTexts([...new Set(steps.flatMap((s) => s.verseKeys))])
-      if (option.kind === 'fillGaps') await loadAiGaps([...texts.values()])
-      const playable = steps.filter((s) => s.verseKeys.every((k) => texts.has(k)))
-      if (playable.length === 0) {
-        setError('Не удалось загрузить текст стихов. Проверьте соединение и попробуйте ещё раз.')
-      } else {
-        setRun({ steps: playable, texts, round: round + 1 })
-        setRound((r) => r + 1)
+        if (targetKeys.length === 0) {
+          if (alive) setState('empty')
+          return
+        }
+
+        const targetVerses = targetKeys.map((k) => liveMap.get(k)!).filter(Boolean)
+        const computedLabel = groupVerses(targetKeys.map(parseKey).filter((p): p is NonNullable<typeof p> => p !== null))
+          .map(formatRange)
+          .join(', ')
+        if (alive) setLabel(computedLabel)
+
+        // Генерируем 5–8 адаптированных упражнений
+        const steps = planVersePractice(targetVerses, allVerses, Math.random)
+        if (steps.length === 0) {
+          if (alive) setState('empty')
+          return
+        }
+
+        // Загружаем тексты стихов
+        const neededKeys = [...new Set(steps.flatMap((s) => s.verseKeys))]
+        const texts = await loadTexts(neededKeys)
+
+        // Варианты ответов для упражнений с пропусками
+        const gapVerses = [...new Set(steps.filter((s) => s.kind === 'fillGaps').flatMap((s) => s.verseKeys))]
+          .map((k) => texts.get(k))
+          .filter((v): v is VerseText => v !== undefined)
+        await loadAiGaps(gapVerses)
+
+        const playable = steps.filter((s) => s.verseKeys.every((k) => texts.has(k)))
+        if (!alive) return
+
+        if (playable.length === 0) {
+          setState('error')
+        } else {
+          setState({ steps: playable, texts })
+        }
+      } catch {
+        if (alive) setState('error')
       }
-    } catch {
-      setError('Не удалось загрузить текст стихов. Проверьте соединение и попробуйте ещё раз.')
-    } finally {
-      setBusy(false)
+    })()
+
+    return () => {
+      alive = false
     }
+  }, [round, rawKeys])
+
+  function onFinish(summary: LessonSummary) {
+    if (state === 'loading' || state === 'empty' || state === 'error') return
+    saving.current = saveLesson({ verseKeys: summary.keys, xp: summary.xp, mistakes: summary.mistakes })
   }
 
-  if (run) {
+  async function handleAnother() {
+    await saving.current
+    setRound((r) => r + 1)
+  }
+
+  if (state === 'loading') {
+    return <p className="muted-block" style={{ padding: '2rem 1rem', textAlign: 'center' }}>Готовим тренировку…</p>
+  }
+
+  if (state === 'empty') {
     return (
-      <LessonRunner
-        key={run.round}
-        steps={run.steps}
-        texts={run.texts}
-        record={recordStep}
-        retries={false}
-        title="Тренировка завершена"
-        anotherLabel="К выбору упражнения"
-        closeLabel="К стихам"
-        onAnother={() => setRun(null)}
-        onClose={() => navigate('/verses')}
-      />
+      <div style={{ padding: '1.5rem 1rem', textAlign: 'center' }}>
+        <Link to="/verses" className="back">← К стихам</Link>
+        <h1 style={{ marginTop: '1rem' }}>Тренировка стиха</h1>
+        <p className="empty" style={{ margin: '1.5rem 0' }}>
+          Стихи для тренировки не найдены. Выберите стих на вкладке «Стихи» кнопкой «Тренировать».
+        </p>
+        <button className="btn primary" onClick={() => navigate('/verses')}>
+          К моим стихам
+        </button>
+      </div>
     )
   }
 
-  if (keys.length === 0) {
+  if (state === 'error') {
     return (
-      <>
-        <Link to="/verses" className="back">← Мои стихи</Link>
-        <h1>Тренировка</h1>
-        <p className="empty">Стихи для тренировки не найдены. Выберите их на вкладке «Стихи» кнопкой «Тренировать».</p>
-      </>
+      <div style={{ padding: '1.5rem 1rem' }}>
+        <Link to="/verses" className="back">← К стихам</Link>
+        <h1 style={{ marginTop: '1rem' }}>Тренировка</h1>
+        <p className="notice error" role="status">
+          Не удалось подготовить тренировку: текст стихов не загрузился. Проверьте соединение и попробуйте ещё раз.
+        </p>
+        <button className="btn primary" onClick={() => setRound((r) => r + 1)}>
+          Повторить попытку
+        </button>
+      </div>
     )
   }
 
   return (
-    <>
-      <Link to="/verses" className="back">← Мои стихи</Link>
-      <h1>Тренировка</h1>
-      <p><strong>{label}</strong></p>
-      <p className="muted-block">
-        Выберите упражнение. Результат засчитывается так же, как в уроке: сила стихов меняется по общим правилам и начисляется опыт.
-        Учебные упражнения (открытие по тапу, частично скрытый текст) без оценки.
-        {keys.length > 6 && ' Стихов в отрывке много, поэтому берутся не больше шести подряд (случайное место).'}
-      </p>
-
-      {error && <p className="notice error" role="status">{error}</p>}
-
-      <ul className="list">
-        {PRACTICE_OPTIONS.map((option) => (
-          <li key={option.kind} className="practice-card">
-            <strong>{option.title}</strong>
-            <small>{option.description}{option.scored ? '' : ' Без оценки.'}</small>
-            <div className="row">
-              {option.levels.map((level, i) => (
-                <button
-                  key={level.label}
-                  className={option.levels.length === 1 ? 'btn primary' : 'btn ghost'}
-                  disabled={busy}
-                  onClick={() => start(option, i)}
-                >
-                  {level.label}
-                </button>
-              ))}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </>
+    <LessonRunner
+      key={`${round}:${rawKeys.join('+')}`}
+      steps={state.steps}
+      texts={state.texts}
+      record={recordStep}
+      retries={true}
+      title={label ? `Тренировка: ${label}` : 'Тренировка завершена'}
+      anotherLabel="Ещё раз"
+      closeLabel="К стихам"
+      onAnother={handleAnother}
+      onClose={() => navigate('/verses')}
+      onFinish={onFinish}
+    />
   )
 }

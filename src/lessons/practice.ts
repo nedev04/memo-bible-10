@@ -1,4 +1,6 @@
 import type { Rng } from '../logic/exercises'
+import type { VerseState } from '../types'
+import { gapSettings, partialSettings, typingVisiblePct } from './generator'
 import type { ExerciseKind, LessonStep, StepSettings } from './types'
 
 export interface PracticeLevel {
@@ -113,4 +115,108 @@ export function buildPracticeSteps(
   if (option.kind === 'orderParts') return [step(windowOf(keys, MAX_ORDER_VERSES, rng), 0)]
   if (option.kind === 'typing') return [step(windowOf(keys, MAX_TYPING_VERSES, rng), 0)]
   return windowOf(keys, MAX_PER_VERSE, rng).map((k, i) => step([k], i))
+}
+
+/**
+ * Автоматический подбор 5–8 разнообразных упражнений для персональной тренировки
+ * одного стиха (или выбранной группы стихов), точно подогнанных под его силу (0–7).
+ */
+export function planVersePractice(
+  targetVerses: VerseState[],
+  allVerses: VerseState[] = targetVerses,
+  rng: Rng = Math.random,
+): LessonStep[] {
+  if (targetVerses.length === 0) return []
+  const v = targetVerses[0]
+  const s = v.strength
+  const keys = targetVerses.map((x) => x.key)
+  const isMulti = targetVerses.length > 1
+  const out: { kind: ExerciseKind; settings: StepSettings; verseKeys: string[] }[] = []
+
+  const step = (kind: ExerciseKind, settings: StepSettings, verseKeys: string[] = [v.key]) => ({
+    kind,
+    settings,
+    verseKeys,
+  })
+
+  if (!isMulti) {
+    if (s === 0) {
+      // Новый стих (сила 0): Знакомство -> Разбор -> Первые тренировки (7-8 упражнений)
+      out.push(step('reveal', { chunk: 2 }))
+      out.push(step('partial', partialSettings(0)))
+      out.push(step('fillGaps', { blanks: 2, options: 4 }))
+      out.push(step('assemble', { pieces: 4 }))
+      out.push(step('firstLetters', { hintLevel: 1 }))
+      out.push(step('partial', partialSettings(1)))
+      out.push(step('fillGaps', { blanks: 3, options: 4 }))
+      out.push(step('whereWritten', { levels: 1 }))
+    } else if (s <= 2) {
+      // Начальный уровень (сила 1-2): Разминка -> Усложнение -> Закрепление (7-8 упражнений)
+      out.push(step('partial', partialSettings(s)))
+      out.push(step('whereWritten', { levels: s === 1 ? 1 : 2 }))
+      out.push(step('fillGaps', gapSettings(s)))
+      out.push(step('assemble', { pieces: s === 1 ? 4 : 6 }))
+      out.push(step('firstLetters', { hintLevel: 1 }))
+      out.push(step('fillGaps', gapSettings(s + 1)))
+      out.push(step('assemble', { pieces: s === 1 ? 6 : 8 }))
+      out.push(step('firstLetters', { hintLevel: 2 }))
+    } else if (s <= 4) {
+      // Средний уровень (сила 3-4): Активное воспроизведение с подсказками (7-8 упражнений)
+      out.push(step('partial', partialSettings(s)))
+      out.push(step('whereWritten', { levels: s === 3 ? 2 : 3 }))
+      out.push(step('fillGaps', gapSettings(s)))
+      out.push(step('assemble', { pieces: s === 3 ? 8 : 10 }))
+      out.push(step('firstLetters', { hintLevel: 2 }))
+      const nextNeighbor = allVerses.find(
+        (x) => x.book === v.book && x.chapter === v.chapter && x.verse === v.verse + 1 && x.strength >= 1,
+      )
+      if (nextNeighbor && rng() < 0.6) {
+        out.push(step('orderParts', {}, [v.key, nextNeighbor.key]))
+      } else {
+        out.push(step('assemble', { pieces: s === 3 ? 10 : 12 }))
+      }
+      out.push(step('firstLetters', { hintLevel: 3 }))
+      out.push(step('typing', { visiblePct: typingVisiblePct(s, 1) }))
+    } else {
+      // Высокий уровень (сила 5-7): Сложные задания, минимум подсказок (7 упражнений)
+      out.push(step('whereWritten', { levels: 3 }))
+      out.push(step('fillGaps', gapSettings(s)))
+      out.push(step('assemble', { pieces: 12 }))
+      out.push(step('partial', partialSettings(s)))
+      out.push(step('firstLetters', { hintLevel: 3 }))
+      const nextNeighbor = allVerses.find(
+        (x) => x.book === v.book && x.chapter === v.chapter && x.verse === v.verse + 1 && x.strength >= 1,
+      )
+      if (nextNeighbor && rng() < 0.6) {
+        out.push(step('orderParts', {}, [v.key, nextNeighbor.key]))
+      } else {
+        out.push(step('assemble', { pieces: 14 }))
+      }
+      out.push(step('typing', { visiblePct: 0 }))
+    }
+  } else {
+    // Несколько стихов подряд
+    const minStrength = Math.min(...targetVerses.map((x) => x.strength))
+    targetVerses.forEach((verse) => {
+      out.push(step('partial', partialSettings(verse.strength), [verse.key]))
+    })
+    targetVerses.forEach((verse) => {
+      out.push(step('fillGaps', gapSettings(verse.strength), [verse.key]))
+    })
+    targetVerses.forEach((verse) => {
+      out.push(step('firstLetters', { hintLevel: verse.strength >= 3 ? 2 : 1 }, [verse.key]))
+    })
+    if (keys.length >= 2) {
+      out.push(step('orderParts', {}, keys.slice(0, 4)))
+    }
+    if (minStrength >= 2) {
+      out.push(step('typing', { visiblePct: typingVisiblePct(minStrength, keys.length) }, keys.slice(0, 3)))
+    }
+  }
+
+  const trimmed = out.slice(0, 8)
+  return trimmed.map((c, n) => ({
+    id: `practice:${c.kind}:${c.verseKeys.join('+')}:${n}`,
+    ...c,
+  }))
 }
