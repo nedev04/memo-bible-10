@@ -57,7 +57,6 @@ export default function FillGapsVerse({ verse, settings, onAnswer }: StepProps) 
 
   return (
     <div className="exwrap">
-      <div className="exercise-verse-ref">{verse.ref}</div>
       <p className="hint">Нажмите на пропуск и выберите слово. Если ошибётесь, верное слово встанет на место красным.</p>
       <WordFlow
         words={words}

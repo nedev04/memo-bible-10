@@ -26,7 +26,6 @@ export default function RevealVerse({ verse, settings, onAnswer }: StepProps) {
 
   return (
     <div className="reveal" onClick={() => !done && setShown((s) => s + 1)}>
-      <div className="exercise-verse-ref">{verse.ref}</div>
       <div className="reveal-text">
         {shown === 0 && <p className="hint">Касайтесь экрана, чтобы стих открывался по частям.</p>}
         {lines.map((lineChunks, lineIdx) => {

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { sameOrderText, scoreOrder, shuffleBlocks } from '../../logic/exercises'
 
 interface Props {
@@ -26,6 +26,53 @@ export default function OrderBoard({ texts, layout, labels, hint, onDone }: Prop
   const suppressClick = useRef(false)
   const placedRef = useRef(placed)
   placedRef.current = placed
+
+  const pileRef = useRef<HTMLUListElement>(null)
+  const [rowMap, setRowMap] = useState<Map<number, number>>(new Map())
+
+  // Запоминаем исходные визуальные строки для каждого кусочка в pile
+  useLayoutEffect(() => {
+    const container = pileRef.current
+    if (!container || layout !== 'chips') return
+    const elements = container.querySelectorAll<HTMLElement>('[data-pile-id]')
+    if (elements.length === 0) return
+
+    const newRowMap = new Map<number, number>()
+    let currentRow = 0
+    let lastTop: number | null = null
+
+    elements.forEach((el) => {
+      const id = Number(el.dataset.pileId)
+      const top = el.offsetTop
+      if (lastTop === null) {
+        lastTop = top
+      } else if (Math.abs(top - lastTop) > 8) {
+        currentRow++
+        lastTop = top
+      }
+      newRowMap.set(id, currentRow)
+    })
+
+    setRowMap(newRowMap)
+  }, [pile, layout])
+
+  // Находим строки, все элементы которых уже перенесены в ответ
+  const emptyRows = useMemo(() => {
+    if (rowMap.size === 0) return new Set<number>()
+    const byRow = new Map<number, number[]>()
+    rowMap.forEach((row, id) => {
+      const arr = byRow.get(row) ?? []
+      arr.push(id)
+      byRow.set(row, arr)
+    })
+    const fullyEmpty = new Set<number>()
+    byRow.forEach((items, row) => {
+      if (items.every((id) => placed.includes(id))) {
+        fullyEmpty.add(row)
+      }
+    })
+    return fullyEmpty
+  }, [rowMap, placed])
 
   const rest = pile.filter((id) => !placed.includes(id))
   const allPlaced = placed.length === texts.length
@@ -100,29 +147,45 @@ export default function OrderBoard({ texts, layout, labels, hint, onDone }: Prop
     onDone(score, texts.join(layout === 'chips' ? ' ' : '\n'))
   }
 
-  const piece = (id: number, slot?: number, state?: 'ok' | 'bad', hidden?: boolean) => (
-    <li
-      key={id}
-      className={`piece ${layout}${drag?.id === id ? ' dragging' : ''}${state ? ` ${state}` : ''}`}
-      data-slot={slot}
-      style={hidden ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
-      aria-hidden={hidden}
-    >
-      {layout === 'blocks' && !checked && !hidden && (
-        <span className="grip" onPointerDown={(e) => startDrag(e, id)} aria-hidden="true">⋮⋮</span>
-      )}
-      <button
-        className="piece-btn"
-        onClick={() => onClickPiece(id)}
-        onPointerDown={layout === 'chips' && !hidden ? (e) => startDrag(e, id) : undefined}
-        disabled={checked || hidden}
-        tabIndex={hidden ? -1 : 0}
+  const piece = (
+    id: number,
+    slot?: number,
+    state?: 'ok' | 'bad',
+    hiddenMode?: 'collapse' | 'placeholder',
+  ) => {
+    const isHidden = Boolean(hiddenMode)
+    const hiddenStyle =
+      hiddenMode === 'collapse'
+        ? { display: 'none' }
+        : hiddenMode === 'placeholder'
+        ? { visibility: 'hidden' as const, pointerEvents: 'none' as const }
+        : undefined
+
+    return (
+      <li
+        key={id}
+        data-pile-id={id}
+        className={`piece ${layout}${drag?.id === id ? ' dragging' : ''}${state ? ` ${state}` : ''}`}
+        data-slot={slot}
+        style={hiddenStyle}
+        aria-hidden={isHidden}
       >
-        {checked && labels?.[id] && <sup className="plabel">{labels[id]}</sup>}
-        {texts[id]}
-      </button>
-    </li>
-  )
+        {layout === 'blocks' && !checked && !isHidden && (
+          <span className="grip" onPointerDown={(e) => startDrag(e, id)} aria-hidden="true">⋮⋮</span>
+        )}
+        <button
+          className="piece-btn"
+          onClick={() => onClickPiece(id)}
+          onPointerDown={layout === 'chips' && !isHidden ? (e) => startDrag(e, id) : undefined}
+          disabled={checked || isHidden}
+          tabIndex={isHidden ? -1 : 0}
+        >
+          {checked && labels?.[id] && <sup className="plabel">{labels[id]}</sup>}
+          {texts[id]}
+        </button>
+      </li>
+    )
+  }
 
   return (
     <div className="exwrap board">
@@ -134,8 +197,15 @@ export default function OrderBoard({ texts, layout, labels, hint, onDone }: Prop
       </ol>
 
       {!checked && (
-        <ul className={`zone pile ${layout}`} data-zone="pile" aria-label="Части">
-          {pile.map((id) => piece(id, undefined, undefined, placed.includes(id)))}
+        <ul className={`zone pile ${layout}`} ref={pileRef} data-zone="pile" aria-label="Части">
+          {pile.map((id) => {
+            const isUsed = placed.includes(id)
+            if (!isUsed) return piece(id)
+            if (layout === 'blocks') return piece(id, undefined, undefined, 'collapse')
+            const row = rowMap.get(id)
+            const isEntireRowEmpty = row !== undefined && emptyRows.has(row)
+            return piece(id, undefined, undefined, isEntireRowEmpty ? 'collapse' : 'placeholder')
+          })}
         </ul>
       )}
 

@@ -33,30 +33,30 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'new', label: STRENGTH_LABEL.new },
 ]
 
-/** Градиент от светло-оранжевого (1) через зелёный (4-5) до королевского синего (7 - выучено) */
-const STRENGTH_GRADIENT_COLORS: string[] = [
-  '#fb923c', // 1: светло-оранжевый
-  '#f59e0b', // 2: янтарный
-  '#84cc16', // 3: лайм
-  '#22c55e', // 4: сочный зелёный
-  '#10b981', // 5: изумрудный
-  '#0ea5e9', // 6: лазурно-синий
-  '#2563eb', // 7: королевский синий (выучено)
-]
+/** Цвета для каждого уровня силы (1-7) */
+const STRENGTH_LEVEL_COLORS: Record<number, string> = {
+  1: '#fb923c', // 1: светло-оранжевый
+  2: '#f59e0b', // 2: янтарный
+  3: '#84cc16', // 3: лайм
+  4: '#22c55e', // 4: сочный зелёный
+  5: '#10b981', // 5: изумрудный
+  6: '#0ea5e9', // 6: лазурно-синий
+  7: '#2563eb', // 7: королевский синий (выучено)
+}
 
 function StrengthDots({ strength }: { strength: number }) {
+  const cardColor = STRENGTH_LEVEL_COLORS[strength] ?? '#2563eb'
   return (
     <div className="strength-dots-row" title={`Сила ${strength} из 7`}>
       {Array.from({ length: 7 }).map((_, i) => {
         const isFilled = i < strength
-        const dotColor = STRENGTH_GRADIENT_COLORS[i] ?? '#2563eb'
         return (
           <span
             key={i}
             className={`strength-dot ${isFilled ? 'filled' : 'empty'}`}
             style={{
-              backgroundColor: isFilled ? dotColor : 'transparent',
-              borderColor: isFilled ? dotColor : 'var(--muted)',
+              backgroundColor: isFilled ? cardColor : 'transparent',
+              borderColor: isFilled ? cardColor : 'var(--muted)',
             }}
           />
         )

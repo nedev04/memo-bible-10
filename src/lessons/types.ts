@@ -36,13 +36,13 @@ export function stepTier(step: LessonStep): Tier | null {
     case 'assemble':
       return (step.settings.pieces ?? 6) >= 12 ? 3 : (step.settings.pieces ?? 6) <= 4 ? 1 : 2
     case 'orderParts':
-      return step.verseKeys.length >= 3 ? 3 : 2
+      return 2
     case 'typing':
-      // Ввод по памяти с чистого листа — Tier 3; если часть слов показана — Tier 2
+      // Ввод по памяти с чистого листа — вспоминание без подсказок; если часть слов показана, это вспоминание с опорой
       return (step.settings.visiblePct ?? 0) > 0 ? 2 : 3
     case 'firstLetters':
-      // hintLevel 3 (слова полностью скрыты) — Tier 3; hintLevel 2 — Tier 2; hintLevel 1 — Tier 1
-      return (step.settings.hintLevel ?? 1) >= 3 ? 3 : (step.settings.hintLevel ?? 1) === 2 ? 2 : 1
+      // Слова видны целиком — узнавание; видны частично или не видны — вспоминание с опорой
+      return (step.settings.hintLevel ?? 1) <= 1 ? 1 : 2
   }
 }
 

@@ -28,10 +28,14 @@ export default function FirstLetters({ content, difficulty, onComplete, embedded
   const done = pos >= words.length
   const doneCount = letters.slice(0, pos).filter((l) => l !== null).length
 
+  const curWord = words[pos]
+  const rawFirstChar = curWord ? curWord.core.match(/[\p{L}\p{N}]/u)?.[0] : null
+  const isUpper = rawFirstChar ? rawFirstChar !== rawFirstChar.toLowerCase() && rawFirstChar === rawFirstChar.toUpperCase() : false
+
   // preventScroll — чтобы браузер не прыгал к полю ввода при фокусе
   const focusInput = () => inputRef.current?.focus({ preventScroll: true })
 
-  useEffect(() => { focusInput() }, [])
+  useEffect(() => { focusInput() }, [pos, isUpper])
 
   // Невидимое поле всегда стоит прямо на текущем слове. Если браузер при вводе всё же захочет
   // «показать поле», он покажет именно текущее слово, а не телепортирует страницу в другое место.
@@ -41,7 +45,12 @@ export default function FirstLetters({ content, difficulty, onComplete, embedded
     const cur = box?.querySelector('.cur')
     if (!box || !input || !cur) return
     input.style.top = `${cur.getBoundingClientRect().top - box.getBoundingClientRect().top}px`
-  }, [pos])
+    if (isUpper) {
+      input.setAttribute('autocapitalize', 'characters')
+    } else {
+      input.setAttribute('autocapitalize', 'off')
+    }
+  }, [pos, isUpper])
 
   // Прокручиваем к текущему слову, только если оно уходит из удобной зоны
   useEffect(() => {
@@ -92,9 +101,10 @@ export default function FirstLetters({ content, difficulty, onComplete, embedded
         {/* Невидимое поле: ловит нажатия клавиш */}
         <input
           ref={inputRef}
+          key={isUpper ? 'upper' : 'lower'}
           className="ghost-input"
           value=""
-          autoCapitalize="off"
+          autoCapitalize={isUpper ? 'characters' : 'off'}
           autoCorrect="off"
           autoComplete="off"
           spellCheck={false}
