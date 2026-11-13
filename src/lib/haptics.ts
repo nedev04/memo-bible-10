@@ -2,7 +2,7 @@ let lastVibrateAt = 0
 const DEBOUNCE_MS = 250
 
 /**
- * Короткий деликатный тактильный отклик (25 мс) при неверном ответе.
+ * Короткий тактильный отклик (40 мс) при неверном ответе.
  * Не срабатывает чаще одного раза в 250 мс и уважает prefers-reduced-motion.
  */
 export function vibrateError(): void {
@@ -14,7 +14,7 @@ export function vibrateError(): void {
   if (now - lastVibrateAt < DEBOUNCE_MS) return
   lastVibrateAt = now
   try {
-    navigator.vibrate(25)
+    navigator.vibrate(40)
   } catch {
     // ignore unsupported environments
   }
