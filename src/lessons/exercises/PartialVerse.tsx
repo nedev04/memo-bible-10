@@ -28,37 +28,39 @@ export default function PartialVerse({ verse, settings, onAnswer }: StepProps) {
     <div className="exwrap">
       <p className="hint">Прочитайте стих вслух. Коснитесь скрытого слова, чтобы увидеть его на секунду.</p>
 
-      <WordFlow
-        words={words}
-        renderWord={(w, i) => {
-          const m = mask[i]
-          if (m === null) return w.raw
-          const open = peek === i
-          const origChars = [...w.core]
-          const maskChars = [...m]
-          return (
-            <span>
-              {w.lead}
-              <button
-                type="button"
-                className={open ? 'peek open' : 'peek'}
-                onClick={() => peekWord(i)}
-              >
-                {origChars.map((ch, k) =>
-                  !open && maskChars[k] === '_' && ch !== '_' ? (
-                    <span key={k} className="peek-hidden-ch" aria-hidden="true">
-                      {ch}
-                    </span>
-                  ) : (
-                    <span key={k}>{ch}</span>
-                  ),
-                )}
-              </button>
-              {w.trail}
-            </span>
-          )
-        }}
-      />
+      <div className="peek-flow">
+        <WordFlow
+          words={words}
+          renderWord={(w, i) => {
+            const m = mask[i]
+            if (m === null) return w.raw
+            const open = peek === i
+            const origChars = [...w.core]
+            const maskChars = [...m]
+            return (
+              <span>
+                {w.lead}
+                <button
+                  type="button"
+                  className={open ? 'peek open' : 'peek'}
+                  onClick={() => peekWord(i)}
+                >
+                  {origChars.map((ch, k) =>
+                    !open && maskChars[k] === '_' && ch !== '_' ? (
+                      <span key={k} className="peek-hidden-ch" aria-hidden="true">
+                        {ch}
+                      </span>
+                    ) : (
+                      <span key={k}>{ch}</span>
+                    ),
+                  )}
+                </button>
+                {w.trail}
+              </span>
+            )
+          }}
+        />
+      </div>
 
       <div className="sliders">
         <label>
