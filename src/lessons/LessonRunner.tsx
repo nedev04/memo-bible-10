@@ -2,10 +2,13 @@ import { useEffect, useRef, useState, type ComponentType } from 'react'
 import ProgressBar from '../components/ProgressBar'
 import { PASS_SCORE, PARTIAL_SCORE } from '../logic/config'
 import AssembleWords from './exercises/AssembleWords'
+import BridgeVerse from './exercises/BridgeVerse'
 import FillGapsVerse from './exercises/FillGapsVerse'
 import FirstLettersVerse from './exercises/FirstLettersVerse'
+import MatchRefs from './exercises/MatchRefs'
 import OrderParts from './exercises/OrderParts'
 import PartialVerse from './exercises/PartialVerse'
+import ProofreadVerse from './exercises/ProofreadVerse'
 import RevealVerse from './exercises/RevealVerse'
 import TypeVerses from './exercises/TypeVerses'
 import WhereWritten from './exercises/WhereWritten'
@@ -20,6 +23,9 @@ const COMPONENTS: Record<ExerciseKind, ComponentType<StepProps>> = {
   orderParts: OrderParts,
   typing: TypeVerses,
   firstLetters: FirstLettersVerse,
+  proofread: ProofreadVerse,
+  bridge: BridgeVerse,
+  matchRefs: MatchRefs,
 }
 
 /** «Матфея 5:7–9» для нескольких подряд идущих стихов */

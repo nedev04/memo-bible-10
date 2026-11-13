@@ -41,6 +41,15 @@ async function generate(v: VerseText) {
   await save(v, parseAiItems((res.data as { items?: unknown } | null)?.items, flattenWords(v.text)))
 }
 
+/** Мгновенно подгружает уже сохранённые на устройстве варианты ИИ для пропусков */
+export async function loadCachedAiGaps(verses: VerseText[]): Promise<void> {
+  for (const v of verses) {
+    if (v.aiGaps) continue
+    const cached = await db.gapOptions.get(cacheId(v)).catch(() => undefined)
+    if (cached) v.aiGaps = cached.items
+  }
+}
+
 /** budgetMs — сколько ждать в сумме; на что времени не хватило, то упражнение заменит обычными вариантами */
 export async function loadAiGaps(verses: VerseText[], budgetMs = 6000): Promise<void> {
   if (!supabase || verses.length === 0) return
@@ -55,12 +64,8 @@ export async function loadAiGaps(verses: VerseText[], budgetMs = 6000): Promise<
   const left = () => deadline - Date.now()
 
   // 1. Сохранённое на устройстве
-  let todo: VerseText[] = []
-  for (const v of verses) {
-    const cached = await db.gapOptions.get(cacheId(v)).catch(() => undefined)
-    if (cached) v.aiGaps = cached.items
-    else todo.push(v)
-  }
+  await loadCachedAiGaps(verses)
+  let todo = verses.filter((v) => !v.aiGaps)
   if (todo.length === 0) return
 
   // 2. Общий кэш в облаке

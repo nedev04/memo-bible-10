@@ -49,6 +49,22 @@ export interface GapCacheRow {
   savedAt: number
 }
 
+/** Одна подмена от ИИ (или кэша) для упражнения «Корректор» */
+export interface ProofreadCandidate {
+  wordIndex: number
+  original: string
+  impostor: string
+  /** 2–3 неверных варианта (к ним добавляется original) */
+  distractors: string[]
+}
+
+/** Локальный кэш заданий «Корректор» от ИИ */
+export interface ProofreadCacheRow {
+  id: string
+  items: ProofreadCandidate[]
+  savedAt: number
+}
+
 /** Пройденный урок. Содержимое не хранится: урок собирается заново, когда его начинают или повторяют. */
 export interface LessonRecord {
   id?: number

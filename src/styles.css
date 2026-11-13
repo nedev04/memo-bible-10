@@ -2434,3 +2434,244 @@ html[data-theme="light"] .options .option-choice-btn {
 .chips.mode-tabs .chip.active {
   background: var(--accent); color: #ffffff; border-color: var(--accent);
 }
+
+/* ========================================================
+   НОВЫЕ УПРАЖНЕНИЯ: КОРРЕКТОР, МОСТИК И СООТВЕТСТВИЕ
+   ======================================================== */
+
+/* Корректор: слова выглядят как единый текст без выдающих подсказок */
+.proof-word-wrap {
+  display: inline;
+}
+
+.proof-word {
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0.04em 0.1em;
+  margin: -0.04em -0.1em;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: inherit;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.proof-word:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.proof-word.cur {
+  background: var(--mark);
+  color: var(--mark-ink, #1e293b);
+  box-shadow: 0 0 0 2px var(--mark);
+}
+
+.proof-word.genuine-bad {
+  background: color-mix(in srgb, var(--bad) 22%, transparent);
+  color: var(--bad);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bad) 30%, transparent);
+}
+
+.proof-word:disabled {
+  cursor: default;
+}
+
+/* Мостик: связь ссылки и фрагмента стиха */
+.bridge-ref-hero {
+  font-family: var(--font-ui);
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--accent-light);
+  background: color-mix(in srgb, var(--accent) 12%, var(--card));
+  border: 1.5px solid color-mix(in srgb, var(--accent) 32%, var(--line));
+  border-radius: 16px;
+  padding: 0.95rem 1.2rem;
+  text-align: center;
+  margin: 0.25rem 0 1rem;
+}
+
+html.light .bridge-ref-hero,
+html[data-theme="light"] .bridge-ref-hero {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.bridge-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.bridge-option-card {
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-text);
+  font-size: 1.08rem;
+  line-height: 1.5;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  border: 1.5px solid var(--line-strong);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.bridge-option-card:hover:not(:disabled) {
+  background: var(--card-hover);
+  border-color: var(--accent-light);
+  transform: translateY(-1px);
+}
+
+.bridge-option-card:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.bridge-option-card:disabled {
+  cursor: default;
+}
+
+.bridge-option-card.ok {
+  border-color: var(--good);
+  background: color-mix(in srgb, var(--good) 15%, var(--card));
+  color: var(--ink);
+}
+
+.bridge-option-card.bad {
+  border-color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 15%, var(--card));
+  color: var(--ink);
+}
+
+/* Соответствие: 2 колонки по 4–5 строк */
+.match-columns {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 0.65rem;
+  align-items: start;
+  margin: 0.5rem 0 1rem;
+}
+
+.match-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.match-card {
+  width: 100%;
+  text-align: left;
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  border: 1.5px solid var(--line-strong);
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+  font: inherit;
+  user-select: none;
+}
+
+.match-card:hover:not(.ok):not(:disabled) {
+  background: var(--card-hover);
+  border-color: var(--accent-light);
+}
+
+.match-card-left {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.45rem;
+  font-family: var(--font-text);
+  font-size: 0.96rem;
+  line-height: 1.42;
+  min-height: 54px;
+}
+
+.match-card-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 700;
+  min-height: 54px;
+}
+
+.match-card-text {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.match-expand-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card-hover);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-top: 1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.match-expand-btn:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.match-card.selected {
+  border-color: var(--accent-light);
+  background: color-mix(in srgb, var(--accent) 16%, var(--card));
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.match-card.ok {
+  border-color: var(--good);
+  background: color-mix(in srgb, var(--good) 14%, var(--card));
+  opacity: 0.72;
+  cursor: default;
+}
+
+.match-card.bad {
+  border-color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 18%, var(--card));
+}
+
+.match-footer-status {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding-top: 0.25rem;
+}
+
+@media (max-width: 420px) {
+  .match-columns {
+    grid-template-columns: 1.25fr 0.95fr;
+    gap: 0.5rem;
+  }
+  .match-card {
+    padding: 0.55rem 0.6rem;
+  }
+  .match-card-left {
+    font-size: 0.9rem;
+  }
+  .match-card-right {
+    font-size: 0.84rem;
+  }
+}

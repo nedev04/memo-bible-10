@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { liveLessons, liveVerses, recentPassedExercises, recentWhereBooks, saveLesson } from '../db/db'
 import { planLesson } from '../lessons/generator'
-import { loadAiGaps } from '../lessons/aiGaps'
+import { loadAiGaps, loadCachedAiGaps } from '../lessons/aiGaps'
+import { loadCachedProofread, prefetchAiProofread } from '../lessons/aiProofread'
 import { loadTexts } from '../lessons/loadTexts'
 import { recordStep } from '../lessons/record'
 import LessonRunner, { type LessonSummary } from '../lessons/LessonRunner'
@@ -44,14 +45,41 @@ export default function LessonPage() {
           recentPassedExercises: recentPassed,
         })
         if (steps.length === 0) return alive && setState('empty')
-        const texts = await loadTexts([...new Set(steps.flatMap((s) => s.verseKeys))])
-        // Варианты ответов от ИИ для упражнений с пропусками (если не получится, будут обычные варианты)
+        const texts = await loadTexts([...new Set(steps.flatMap((s) => s.verseKeys))], verses)
+
+        // Быстрая подгрузка уже закэшированных на устройстве вариантов ИИ (без ожидания сети)
         const gapVerses = [...new Set(steps.filter((s) => s.kind === 'fillGaps').flatMap((s) => s.verseKeys))]
           .map((k) => texts.get(k))
           .filter((v): v is VerseText => v !== undefined)
-        await loadAiGaps(gapVerses)
+        const proofTargets = steps
+          .filter((s) => s.kind === 'proofread')
+          .flatMap((s) =>
+            s.verseKeys
+              .map((k) => texts.get(k))
+              .filter((v): v is VerseText => v !== undefined)
+              .map((verse) => ({ verse, level: (s.settings.proofLevel ?? 1) as 1 | 2 | 3 })),
+          )
+
+        await Promise.all([
+          loadCachedAiGaps(gapVerses),
+          ...([1, 2, 3] as const).map((lvl) =>
+            loadCachedProofread(
+              proofTargets.filter((t) => t.level === lvl).map((t) => t.verse),
+              lvl,
+            ),
+          ),
+        ])
+
         const playable = steps.filter((s) => s.verseKeys.every((k) => texts.has(k)))
-        if (alive) setState(playable.length === 0 ? 'error' : { steps: playable, texts, replay: !!replayUid })
+        if (!alive) return
+
+        // Фоновая догрузка от ИИ: не задерживает показ первого упражнения
+        if (playable.length > 0) {
+          void loadAiGaps(gapVerses)
+          void prefetchAiProofread(proofTargets)
+        }
+
+        setState(playable.length === 0 ? 'error' : { steps: playable, texts, replay: !!replayUid })
       } catch {
         if (alive) setState('error')
       }

@@ -79,6 +79,29 @@ export const PRACTICE_OPTIONS: PracticeOption[] = [
       { label: 'Чистый лист', settings: { visiblePct: 0 } },
     ],
   },
+  {
+    kind: 'proofread', title: 'Корректор', scored: true,
+    description: 'Найти ошибку в тексте стиха и выбрать правильное слово.',
+    levels: [
+      { label: 'Найти ошибку', settings: { proofLevel: 1 } },
+      { label: 'Найти и заменить (3 варианта)', settings: { proofLevel: 2 } },
+      { label: 'Сложный корректор (4 варианта)', settings: { proofLevel: 3 } },
+    ],
+  },
+  {
+    kind: 'bridge', title: 'Мостик', scored: true,
+    description: 'Связать ссылку стиха с его текстом.',
+    levels: [
+      { label: 'Ссылка → начало', settings: { bridgeLevel: 1 } },
+      { label: 'Фрагмент ↔ ссылка', settings: { bridgeLevel: 2 } },
+      { label: 'Без подсказок', settings: { bridgeLevel: 3 } },
+    ],
+  },
+  {
+    kind: 'matchRefs', title: 'Соответствие', scored: true,
+    description: 'Соединить начала стихов и их ссылки.',
+    levels: [{ label: 'Начать', settings: {} }],
+  },
 ]
 
 /** Сколько стихов берётся для упражнений по одному стиху, для расстановки частей и для ввода по памяти */
@@ -112,7 +135,7 @@ export function buildPracticeSteps(
     settings,
   })
 
-  if (option.kind === 'orderParts') return [step(windowOf(keys, MAX_ORDER_VERSES, rng), 0)]
+  if (option.kind === 'orderParts' || option.kind === 'matchRefs') return [step(windowOf(keys, MAX_ORDER_VERSES, rng), 0)]
   if (option.kind === 'typing') return [step(windowOf(keys, MAX_TYPING_VERSES, rng), 0)]
   return windowOf(keys, MAX_PER_VERSE, rng).map((k, i) => step([k], i))
 }
@@ -131,6 +154,7 @@ export function planVersePractice(
   const s = v.strength
   const keys = targetVerses.map((x) => x.key)
   const isMulti = targetVerses.length > 1
+  const canBridge = allVerses.length >= 4
   const out: { kind: ExerciseKind; settings: StepSettings; verseKeys: string[] }[] = []
 
   const step = (kind: ExerciseKind, settings: StepSettings, verseKeys: string[] = [v.key]) => ({
@@ -146,25 +170,26 @@ export function planVersePractice(
       out.push(step('partial', partialSettings(0)))
       out.push(step('fillGaps', { blanks: 2, options: 4 }))
       out.push(step('assemble', { pieces: 4 }))
+      out.push(step('proofread', { proofLevel: 1 }))
       out.push(step('firstLetters', { hintLevel: 1 }))
       out.push(step('partial', partialSettings(1)))
-      out.push(step('fillGaps', { blanks: 3, options: 4 }))
       out.push(step('whereWritten', { levels: 1 }))
     } else if (s <= 2) {
       // Начальный уровень (сила 1-2): Разминка -> Усложнение -> Закрепление (7-8 упражнений)
       out.push(step('partial', partialSettings(s)))
-      out.push(step('whereWritten', { levels: s === 1 ? 1 : 2 }))
+      out.push(canBridge ? step('bridge', { bridgeLevel: 1 }) : step('whereWritten', { levels: s === 1 ? 1 : 2 }))
       out.push(step('fillGaps', gapSettings(s)))
       out.push(step('assemble', { pieces: s === 1 ? 4 : 6 }))
+      out.push(step('proofread', { proofLevel: s === 1 ? 1 : 2 }))
       out.push(step('firstLetters', { hintLevel: 1 }))
-      out.push(step('fillGaps', gapSettings(s + 1)))
       out.push(step('assemble', { pieces: s === 1 ? 6 : 8 }))
       out.push(step('firstLetters', { hintLevel: 2 }))
     } else if (s <= 4) {
       // Средний уровень (сила 3-4): Активное воспроизведение с подсказками (7-8 упражнений)
       out.push(step('partial', partialSettings(s)))
-      out.push(step('whereWritten', { levels: s === 3 ? 2 : 3 }))
+      out.push(canBridge ? step('bridge', { bridgeLevel: 2 }) : step('whereWritten', { levels: s === 3 ? 2 : 3 }))
       out.push(step('fillGaps', gapSettings(s)))
+      out.push(step('proofread', { proofLevel: 2 }))
       out.push(step('assemble', { pieces: s === 3 ? 8 : 10 }))
       out.push(step('firstLetters', { hintLevel: 2 }))
       const nextNeighbor = allVerses.find(
@@ -173,14 +198,14 @@ export function planVersePractice(
       if (nextNeighbor && rng() < 0.6) {
         out.push(step('orderParts', {}, [v.key, nextNeighbor.key]))
       } else {
-        out.push(step('assemble', { pieces: s === 3 ? 10 : 12 }))
+        out.push(step('firstLetters', { hintLevel: 3 }))
       }
-      out.push(step('firstLetters', { hintLevel: 3 }))
       out.push(step('typing', { visiblePct: typingVisiblePct(s, 1) }))
     } else {
       // Высокий уровень (сила 5-7): Сложные задания, минимум подсказок (7 упражнений)
-      out.push(step('whereWritten', { levels: 3 }))
+      out.push(canBridge ? step('bridge', { bridgeLevel: 3 }) : step('whereWritten', { levels: 3 }))
       out.push(step('fillGaps', gapSettings(s)))
+      out.push(step('proofread', { proofLevel: 3 }))
       out.push(step('assemble', { pieces: 12 }))
       out.push(step('partial', partialSettings(s)))
       out.push(step('firstLetters', { hintLevel: 3 }))
@@ -190,9 +215,8 @@ export function planVersePractice(
       if (nextNeighbor && rng() < 0.6) {
         out.push(step('orderParts', {}, [v.key, nextNeighbor.key]))
       } else {
-        out.push(step('assemble', { pieces: 14 }))
+        out.push(step('typing', { visiblePct: 0 }))
       }
-      out.push(step('typing', { visiblePct: 0 }))
     }
   } else {
     // Несколько стихов подряд
@@ -203,9 +227,13 @@ export function planVersePractice(
     targetVerses.forEach((verse) => {
       out.push(step('fillGaps', gapSettings(verse.strength), [verse.key]))
     })
-    targetVerses.forEach((verse) => {
-      out.push(step('firstLetters', { hintLevel: verse.strength >= 3 ? 2 : 1 }, [verse.key]))
-    })
+    out.push(
+      step(
+        'proofread',
+        { proofLevel: minStrength <= 1 ? 1 : minStrength <= 4 ? 2 : 3 },
+        [v.key],
+      ),
+    )
     if (keys.length >= 2) {
       out.push(step('orderParts', {}, keys.slice(0, 4)))
     }

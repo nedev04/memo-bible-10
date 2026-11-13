@@ -185,6 +185,21 @@ type Candidate = Pick<LessonStep, 'kind' | 'settings' | 'verseKeys'>
 
 const where = (v: VerseState, levels: 1 | 2 | 3): Candidate => ({ kind: 'whereWritten', verseKeys: [v.key], settings: { levels } })
 const letters = (v: VerseState, hintLevel: 1 | 2 | 3): Candidate => ({ kind: 'firstLetters', verseKeys: [v.key], settings: { hintLevel } })
+const proofread = (v: VerseState, proofLevel: 1 | 2 | 3): Candidate => ({ kind: 'proofread', verseKeys: [v.key], settings: { proofLevel } })
+
+export function bridgeLevelForStrength(strength: number): 1 | 2 | 3 {
+  if (strength <= 2) return 1
+  if (strength <= 4) return 2
+  return 3
+}
+
+export function proofLevelForStrength(strength: number): 1 | 2 | 3 {
+  if (strength <= 1) return 1
+  if (strength <= 4) return 2
+  return 3
+}
+
+const isAiStep = (c: Pick<Candidate, 'kind'>) => c.kind === 'proofread' || c.kind === 'fillGaps'
 
 /**
  * Упражнения для одного стиха, который уже учится: дополнительные и «главное»
@@ -203,19 +218,19 @@ function reviewSteps(v: VerseState, all: VerseState[], rng: Rng, now: number, ct
   let others: Candidate[]
   if (s <= 1) {
     gates = [c('fillGaps', gapSettings(s)), ...(parts ? [parts] : [])]
-    others = [c('partial', partialSettings(s)), where(v, 1), letters(v, 1), ...(parts ? [parts] : [])]
+    others = [c('partial', partialSettings(s)), where(v, 1), letters(v, 1), proofread(v, 1), ...(parts ? [parts] : [])]
   } else if (s === 2) {
-    gates = [c('assemble', { pieces: 6 }), letters(v, 2), ...(parts ? [parts] : [])]
-    others = [c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), letters(v, 1), ...(parts ? [parts] : [])]
+    gates = [c('assemble', { pieces: 6 }), letters(v, 2), proofread(v, 2), ...(parts ? [parts] : [])]
+    others = [c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), letters(v, 1), proofread(v, 2), ...(parts ? [parts] : [])]
   } else if (s === 3) {
-    gates = [c('assemble', { pieces: 9 }), letters(v, 3), ...(parts ? [parts, parts] : [])]
-    others = [where(v, 2), c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), letters(v, 2), ...(parts ? [parts] : [])]
+    gates = [c('assemble', { pieces: 9 }), letters(v, 3), proofread(v, 2), ...(parts ? [parts, parts] : [])]
+    others = [where(v, 2), c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), letters(v, 2), proofread(v, 2), ...(parts ? [parts] : [])]
   } else if (s === 4) {
-    gates = [c('assemble', { pieces: 12 }), letters(v, 3), ...(parts ? [parts, parts] : [])]
-    others = [c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), where(v, 3), ...(parts ? [parts] : [])]
+    gates = [c('assemble', { pieces: 12 }), letters(v, 3), proofread(v, 2), ...(parts ? [parts, parts] : [])]
+    others = [c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), where(v, 3), proofread(v, 2), ...(parts ? [parts] : [])]
   } else {
-    gates = [c('fillGaps', gapSettings(s)), letters(v, 3), ...(parts ? [parts] : [])]
-    others = [where(v, 3), c('assemble', { pieces: 14 }), c('partial', partialSettings(s)), ...(parts ? [parts] : [])]
+    gates = [c('fillGaps', gapSettings(s)), letters(v, 3), proofread(v, 3), ...(parts ? [parts] : [])]
+    others = [where(v, 3), c('assemble', { pieces: 14 }), c('partial', partialSettings(s)), proofread(v, 3), ...(parts ? [parts] : [])]
   }
 
   if (shouldSkipWhere(v.book, ctx.recentWhere, rng)) others = others.filter((o) => o.kind !== 'whereWritten')
@@ -230,7 +245,22 @@ function reviewSteps(v: VerseState, all: VerseState[], rng: Rng, now: number, ct
 
   // Сильному стиху достаётся немного упражнений: одно дополнительное и главное
   const extra = isDue(v, now) && !isTop(v) ? 2 : 1
-  const chosen = [...shuffle(usableOthers, rng).slice(0, extra), shuffle(usableGates, rng)[0]]
+  const pickedExtras = shuffle(usableOthers, rng).slice(0, extra)
+
+  // Если возможно, первое дополнительное упражнение не должно требовать ИИ (чтобы первый шаг открывался мгновенно)
+  if (pickedExtras.length > 0 && isAiStep(pickedExtras[0])) {
+    const nonAiIdx = pickedExtras.findIndex((x) => !isAiStep(x))
+    if (nonAiIdx > 0) {
+      ;[pickedExtras[0], pickedExtras[nonAiIdx]] = [pickedExtras[nonAiIdx], pickedExtras[0]]
+    } else {
+      const nonAiPool = usableOthers.filter((x) => !isAiStep(x) && !pickedExtras.includes(x))
+      if (nonAiPool.length > 0) {
+        pickedExtras[0] = shuffle(nonAiPool, rng)[0]
+      }
+    }
+  }
+
+  const chosen = [...pickedExtras, shuffle(usableGates, rng)[0]]
   if (chosen.some((x) => x.kind === 'whereWritten')) ctx.recentWhere.unshift(v.book)
   return chosen
 }
@@ -395,10 +425,70 @@ export function planLesson(
     }
   }
 
+  // «Мостик» и «Соответствие»: включаем, когда в библиотеке уже 4+ стихов, не раздувая длину урока
+  const reviewed = picked.filter((x) => x.strength > 0)
+  if (pool.length >= 4 && reviewed.length > 0 && (!only || picked.length >= 4)) {
+    const bridgeTarget = shuffle(reviewed, rng)[0]
+    const bLevel = bridgeLevelForStrength(bridgeTarget.strength)
+    const bridgeCand: Candidate = {
+      kind: 'bridge',
+      verseKeys: [bridgeTarget.key],
+      settings: { bridgeLevel: bLevel },
+    }
+    if (!isCandidatePassedRecently(bridgeCand, ctx)) {
+      const replaceIdx =
+        out.findIndex((s) => s.kind === 'whereWritten') !== -1
+          ? out.findIndex((s) => s.kind === 'whereWritten')
+          : out.findIndex((s) => s.kind === 'partial')
+      if (replaceIdx !== -1) {
+        out[replaceIdx] = bridgeCand
+      } else if (out.length >= 7) {
+        const extraIdx = out.findIndex((s) => s.kind !== 'reveal' && s.kind !== 'typing')
+        if (extraIdx !== -1) out[extraIdx] = bridgeCand
+        else out.splice(Math.min(1, out.length), 0, bridgeCand)
+      } else {
+        out.splice(Math.min(1, out.length), 0, bridgeCand)
+      }
+    }
+
+    // Если урок достаточно большой, добавим 1 компактное упражнение «Соответствие» (2 колонки, 4-5 строк)
+    if (rng() < 0.65) {
+      const matchCount = pool.length >= 5 && rng() < 0.5 ? 5 : 4
+      const matchKeys = [
+        ...picked.map((v) => v.key),
+        ...shuffle(pool.filter((v) => !picked.some((p) => p.key === v.key)), rng).map((v) => v.key),
+      ].slice(0, matchCount)
+      if (matchKeys.length >= 4) {
+        const matchCand: Candidate = { kind: 'matchRefs', verseKeys: matchKeys, settings: {} }
+        if (out.length >= 8) {
+          const dropIdx = out.findIndex((s) => s.kind === 'partial' || s.kind === 'whereWritten')
+          const fallbackDropIdx = out.findIndex(
+            (s, i) => i < out.length - 1 && s.kind !== 'reveal' && s.kind !== 'bridge' && s.kind !== 'typing',
+          )
+          const idxToDrop = dropIdx !== -1 ? dropIdx : fallbackDropIdx
+          if (idxToDrop !== -1) out.splice(idxToDrop, 1)
+        }
+        out.splice(Math.min(1, out.length), 0, matchCand)
+      }
+    }
+  }
+
   // Если в уроке разрешён ввод по памяти, но ещё не добавлен:
   if (allowTyping && !typingAdded) {
     const typing = typingStep(pool, new Set(picked.map((v) => v.key)), now, rng, ctx)
     if (typing) out.push(typing)
   }
+
+  // Упражнения с ИИ (Корректор / Пропуски) никогда не должны быть самыми первыми, чтобы старт урока был мгновенным
+  if (out.length > 1 && isAiStep(out[0])) {
+    const firstFastIdx = out.findIndex((s, i) => i > 0 && !isAiStep(s) && s.kind !== 'typing')
+    if (firstFastIdx > 0) {
+      // В одно-стиховом уроке последний шаг перед typing — gate; переносим только если шагов >= 3 или gate не меняется
+      if (picked.length > 1 || firstFastIdx < out.length - 1 || out[out.length - 1].kind === 'typing') {
+        ;[out[0], out[firstFastIdx]] = [out[firstFastIdx], out[0]]
+      }
+    }
+  }
+
   return toSteps(out)
 }

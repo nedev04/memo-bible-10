@@ -48,15 +48,17 @@ describe('тренировка', () => {
     expect(buildPracticeSteps(option('reveal'), 5, keys.slice(0, 1))[0].settings).toEqual({ chunk: 2 })
     expect(option('reveal').scored).toBe(false)
     expect(option('partial').scored).toBe(false)
-    expect(PRACTICE_OPTIONS.filter((o) => o.scored)).toHaveLength(6)
+    expect(PRACTICE_OPTIONS.filter((o) => o.scored)).toHaveLength(9)
   })
 
   it('planVersePractice генерирует 5–8 разнообразных упражнений, подогнанных под силу стиха', () => {
-    const makeVerse = (strength: number): any => ({
-      key: 'rst:mat:5:1', translation: 'rst', book: 'mat', chapter: 5, verse: 1,
+    const makeVerse = (strength: number, verseNum = 1): any => ({
+      key: `rst:mat:5:${verseNum}`, translation: 'rst', book: 'mat', chapter: 5, verse: verseNum,
       addedAt: 0, strength, stage: 0, nextReviewAt: 0, updatedAt: 0,
       lastUpAt: null, lastPracticedAt: null, lastScore: null, lapses: 0,
     })
+
+    const library4 = [makeVerse(2, 1), makeVerse(2, 2), makeVerse(2, 3), makeVerse(2, 4)]
 
     // Новый стих (сила 0): 7-8 упражнений, начинается с раскрытия
     const v0Steps = planVersePractice([makeVerse(0)], [makeVerse(0)], seeded(1))
@@ -65,17 +67,23 @@ describe('тренировка', () => {
     expect(v0Steps[0].kind).toBe('reveal')
     expect(v0Steps.some((s) => s.kind === 'partial')).toBe(true)
     expect(v0Steps.some((s) => s.kind === 'fillGaps')).toBe(true)
+    expect(v0Steps.some((s) => s.kind === 'proofread')).toBe(true)
 
-    // Сила 3 (средний уровень): 7-8 упражнений
-    const v3Steps = planVersePractice([makeVerse(3)], [makeVerse(3)], seeded(2))
+    // Сила 3 (средний уровень): 7-8 упражнений, включает «Мостик» при наличии 4+ стихов
+    const v3Steps = planVersePractice([makeVerse(3)], library4, seeded(2))
     expect(v3Steps.length).toBeGreaterThanOrEqual(5)
     expect(v3Steps.length).toBeLessThanOrEqual(8)
     expect(v3Steps.some((s) => s.kind === 'firstLetters')).toBe(true)
+    expect(v3Steps.some((s) => s.kind === 'bridge' && s.settings.bridgeLevel === 2)).toBe(true)
+    expect(['proofread', 'fillGaps']).not.toContain(v3Steps[0].kind)
 
-    // Сила 6 (высокий уровень): 7 упражнений, включает ввод по памяти и сложное "где написано"
-    const v6Steps = planVersePractice([makeVerse(6)], [makeVerse(6)], seeded(3))
+    // Сила 6 (высокий уровень): 7 упражнений, включает сложное «Мостик» / «Корректор»
+    const v6Steps = planVersePractice([makeVerse(6)], library4, seeded(3))
     expect(v6Steps.length).toBeGreaterThanOrEqual(5)
     expect(v6Steps.length).toBeLessThanOrEqual(8)
     expect(v6Steps.some((s) => s.kind === 'typing')).toBe(true)
+    expect(v6Steps.some((s) => s.kind === 'proofread' && s.settings.proofLevel === 3)).toBe(true)
+    expect(v6Steps.some((s) => s.kind === 'bridge' && s.settings.bridgeLevel === 3)).toBe(true)
+    expect(['proofread', 'fillGaps']).not.toContain(v6Steps[0].kind)
   })
 })

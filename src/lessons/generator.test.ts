@@ -341,14 +341,23 @@ describe('план урока', () => {
       for (let i = 1; i <= 40; i++) {
         const steps = withoutTyping(planLesson([verse(1, { strength, stage: 1, nextReviewAt: T0 + 5 * DAY })], T0, seeded(i)))
         const gate = steps[steps.length - 1]
-        found.add(gate.kind + (gate.kind === 'firstLetters' ? `:${gate.settings.hintLevel}` : gate.kind === 'assemble' ? `:${gate.settings.pieces}` : ''))
+        found.add(
+          gate.kind +
+            (gate.kind === 'firstLetters'
+              ? `:${gate.settings.hintLevel}`
+              : gate.kind === 'assemble'
+              ? `:${gate.settings.pieces}`
+              : gate.kind === 'proofread'
+              ? `:${gate.settings.proofLevel}`
+              : ''),
+        )
       }
       return [...found].sort()
     }
     expect(gates(1)).toEqual(['fillGaps'])
-    expect(gates(2)).toEqual(['assemble:6', 'firstLetters:2'])
-    expect(gates(3)).toEqual(['assemble:9', 'firstLetters:3'])
-    expect(gates(5)).toEqual(['fillGaps', 'firstLetters:3'])
+    expect(gates(2)).toEqual(['assemble:6', 'firstLetters:2', 'proofread:2'])
+    expect(gates(3)).toEqual(['assemble:9', 'firstLetters:3', 'proofread:2'])
+    expect(gates(5)).toEqual(['fillGaps', 'firstLetters:3', 'proofread:3'])
   })
 
   it('«главные» упражнения для роста силы с 2 по 4 имеют сложность 2, для роста с 0–1 — 1', () => {

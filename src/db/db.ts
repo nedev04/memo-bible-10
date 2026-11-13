@@ -4,13 +4,14 @@ import { getSyncUserId } from '../sync/syncMeta'
 import type { VerseRef } from '../bible/types'
 import { parseKey, TRANSLATION, verseKey } from '../bible/refs'
 import { applyVerseResult, xpFor, type Tier } from '../logic/mastery'
-import type { GapCacheRow, LessonRecord, VerseReview, VerseState } from '../types'
+import type { GapCacheRow, LessonRecord, ProofreadCacheRow, VerseReview, VerseState } from '../types'
 
 class AppDB extends Dexie {
   verses!: Table<VerseState, string>
   reviews!: Table<VerseReview, number>
   lessons!: Table<LessonRecord, number>
   gapOptions!: Table<GapCacheRow, string>
+  proofreadOptions!: Table<ProofreadCacheRow, string>
 
   constructor() {
     super('memorize-by-heart')
@@ -79,6 +80,8 @@ class AppDB extends Dexie {
     this.version(7).stores({ texts: null, attempts: null })
     // v8: варианты ответов от ИИ, сохранённые на устройстве (кэш; в облако не синхронизируется)
     this.version(8).stores({ gapOptions: 'id' })
+    // v9: задания «Корректор» от ИИ, сохранённые на устройстве
+    this.version(9).stores({ proofreadOptions: 'id' })
   }
 }
 
@@ -145,11 +148,12 @@ export async function clearAll() {
 
 /** Стереть всё локально, не затрагивая облако (при смене аккаунта на устройстве) */
 export async function wipeLocal() {
-  await db.transaction('rw', db.verses, db.reviews, db.lessons, db.gapOptions, async () => {
+  await db.transaction('rw', db.verses, db.reviews, db.lessons, db.gapOptions, db.proofreadOptions, async () => {
     await db.verses.clear()
     await db.reviews.clear()
     await db.lessons.clear()
     await db.gapOptions.clear()
+    await db.proofreadOptions.clear()
   })
 }
 

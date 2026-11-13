@@ -3,7 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { compareVerses, formatRange, groupVerses, parseKey } from '../bible/refs'
 import { liveVerses, saveLesson } from '../db/db'
 import LessonRunner, { type LessonSummary } from '../lessons/LessonRunner'
-import { loadAiGaps } from '../lessons/aiGaps'
+import { loadAiGaps, loadCachedAiGaps } from '../lessons/aiGaps'
+import { loadCachedProofread, prefetchAiProofread } from '../lessons/aiProofread'
 import { loadTexts } from '../lessons/loadTexts'
 import { planVersePractice } from '../lessons/practice'
 import { recordStep } from '../lessons/record'
@@ -65,15 +66,31 @@ export default function PracticePage() {
           return
         }
 
-        // Загружаем тексты стихов
+        // Загружаем тексты стихов и пул для «Мостика»
         const neededKeys = [...new Set(steps.flatMap((s) => s.verseKeys))]
-        const texts = await loadTexts(neededKeys)
+        const texts = await loadTexts(neededKeys, allVerses)
 
-        // Варианты ответов для упражнений с пропусками
         const gapVerses = [...new Set(steps.filter((s) => s.kind === 'fillGaps').flatMap((s) => s.verseKeys))]
           .map((k) => texts.get(k))
           .filter((v): v is VerseText => v !== undefined)
-        await loadAiGaps(gapVerses)
+        const proofTargets = steps
+          .filter((s) => s.kind === 'proofread')
+          .flatMap((s) =>
+            s.verseKeys
+              .map((k) => texts.get(k))
+              .filter((v): v is VerseText => v !== undefined)
+              .map((verse) => ({ verse, level: (s.settings.proofLevel ?? 1) as 1 | 2 | 3 })),
+          )
+
+        await Promise.all([
+          loadCachedAiGaps(gapVerses),
+          ...([1, 2, 3] as const).map((lvl) =>
+            loadCachedProofread(
+              proofTargets.filter((t) => t.level === lvl).map((t) => t.verse),
+              lvl,
+            ),
+          ),
+        ])
 
         const playable = steps.filter((s) => s.verseKeys.every((k) => texts.has(k)))
         if (!alive) return
@@ -81,6 +98,8 @@ export default function PracticePage() {
         if (playable.length === 0) {
           setState('error')
         } else {
+          void loadAiGaps(gapVerses)
+          void prefetchAiProofread(proofTargets)
           setState({ steps: playable, texts })
         }
       } catch {
