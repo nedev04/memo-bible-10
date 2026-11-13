@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { vibrateError } from '../../lib/haptics'
 import { flattenWords } from '../../logic/exercises'
 import WordFlow from '../../exercises/WordFlow'
 import { getProofreadInflight } from '../aiProofread'
@@ -100,6 +101,7 @@ function ProofreadBoard({ level, task, verseText, onAnswer }: BoardProps) {
     const slotIdx = slotByWordIdx.get(wordIdx)
     if (slotIdx === undefined) {
       // Нажато правильное слово — мягкий сигнал ошибки
+      vibrateError()
       setWrongTapCount((n) => n + 1)
       setFlashWrongWord(wordIdx)
       setTimeout(() => {
@@ -123,6 +125,7 @@ function ProofreadBoard({ level, task, verseText, onAnswer }: BoardProps) {
     if (activeSlot === null || done) return
     const slot = slots[activeSlot]
     if (option !== slot.original) {
+      vibrateError()
       setWrongReplaced((prev) => prev.map((v, i) => (i === activeSlot ? true : v)))
     }
     setSolved((prev) => prev.map((v, i) => (i === activeSlot ? true : v)))

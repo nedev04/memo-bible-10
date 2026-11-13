@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
+  Bell,
   BookOpen,
   Check,
   ChevronRight,
@@ -19,8 +20,10 @@ import {
   X
 } from 'lucide-react'
 import { useRef, useState } from 'react'
+import RemindersModal from '../components/RemindersModal'
 import { usePWAInstall } from '../components/usePWAInstall'
 import { clearAll, countLiveVerses, db, liveVerses } from '../db/db'
+import { loadReminderSettings } from '../reminders/pushClient'
 import { useSync } from '../sync/SyncProvider'
 import { useTheme, type FontSize, type Theme } from '../theme/ThemeContext'
 import CloudSection from './CloudSection'
@@ -35,8 +38,9 @@ export default function SettingsPage() {
 
   // Модальные окна
   const [activeModal, setActiveModal] = useState<
-    'theme' | 'font' | 'pwa' | 'cloud' | 'method' | 'bible' | 'privacy' | null
+    'theme' | 'font' | 'reminders' | 'pwa' | 'cloud' | 'method' | 'bible' | 'privacy' | null
   >(null)
+  const [reminderSettings, setReminderSettings] = useState(() => loadReminderSettings())
   const [toast, setToast] = useState<string | null>(null)
 
   function showToast(text: string) {
@@ -240,6 +244,28 @@ export default function SettingsPage() {
             </div>
             <div className="settings-row-right">
               <span className="settings-row-value active-badge">Активен</span>
+              <ChevronRight size={18} className="chevron" />
+            </div>
+          </button>
+
+          <div className="settings-row-divider" />
+
+          {/* Напоминания и Web Push */}
+          <button
+            className="settings-row"
+            onClick={() => setActiveModal('reminders')}
+            aria-label="Настроить напоминания и уведомления"
+          >
+            <div className="settings-row-left">
+              <div className="settings-row-icon text-blue-400">
+                <Bell size={20} />
+              </div>
+              <span className="settings-row-title">Напоминания и Push</span>
+            </div>
+            <div className="settings-row-right">
+              <span className="settings-row-value">
+                {reminderSettings.pushEnabled ? `Вкл · ${reminderSettings.dailyTime}` : 'Выкл'}
+              </span>
               <ChevronRight size={18} className="chevron" />
             </div>
           </button>
@@ -792,6 +818,13 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      <RemindersModal
+        isOpen={activeModal === 'reminders'}
+        onClose={() => setActiveModal(null)}
+        settings={reminderSettings}
+        onSettingsChange={setReminderSettings}
+      />
     </div>
   )
 }

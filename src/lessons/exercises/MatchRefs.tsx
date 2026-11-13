@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { vibrateError } from '../../lib/haptics'
 import { buildMatchPairs } from '../match'
 import type { StepProps } from '../types'
 
@@ -50,6 +51,7 @@ export default function MatchRefs({ verses, onAnswer }: StepProps) {
       setSelectedRight(null)
       setErrorPair(null)
     } else {
+      vibrateError()
       setMistakesByKey((prev) => ({
         ...prev,
         [leftKey]: (prev[leftKey] ?? 0) + 1,

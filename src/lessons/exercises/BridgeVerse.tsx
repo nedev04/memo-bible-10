@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import FirstLetters from '../../exercises/FirstLetters'
+import { vibrateError } from '../../lib/haptics'
 import { buildBridgeQuiz } from '../bridge'
 import type { StepProps } from '../types'
 
@@ -54,6 +55,7 @@ export default function BridgeVerse({ verse, settings, onAnswer }: StepProps) {
         nextField = 'done'
       }
 
+      if (!isOk) vibrateError()
       const nextLog = [...pickedLog, { label, ok: isOk }]
       setPickedLog(nextLog)
       setStepField(nextField)
@@ -138,6 +140,7 @@ export default function BridgeVerse({ verse, settings, onAnswer }: StepProps) {
     if (quiz.kind !== 'choice' || answered.current || selectedKey !== null) return
     setSelectedKey(key)
     const ok = key === quiz.answerKey
+    if (!ok) vibrateError()
     const correctLabel = quiz.options.find((o) => o.key === quiz.answerKey)?.label ?? verse.ref
     submit(ok ? 100 : 0, ok ? undefined : `${verse.ref}: «${correctLabel}»`)
   }

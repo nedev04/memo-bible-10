@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import { LogOut } from 'lucide-react'
 import ProgressBar from '../components/ProgressBar'
+import { vibrateError } from '../lib/haptics'
 import { PASS_SCORE, PARTIAL_SCORE } from '../logic/config'
 import AssembleWords from './exercises/AssembleWords'
 import BridgeVerse from './exercises/BridgeVerse'
@@ -114,6 +115,7 @@ export default function LessonRunner({
       advance(queue.length)
       return
     }
+    if (r.score < PASS_SCORE) vibrateError()
     setResult(r)
     // Ошибка: то же упражнение будет ещё раз в конце урока (один раз). Ввод по памяти не повторяется: он длинный.
     if (retries && r.score < PASS_SCORE && !step.retry && step.kind !== 'typing') {

@@ -21,6 +21,7 @@ export default defineConfig(() => {
           'pwa-512x512.png',
           'pwa-maskable-512x512.png',
           'bible-icon.png',
+          'sw-push.js',
         ],
         manifest: {
           id: '/',
@@ -56,6 +57,7 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          importScripts: ['/sw-push.js'],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           runtimeCaching: [
             {

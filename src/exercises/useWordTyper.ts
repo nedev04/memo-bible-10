@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
+import { vibrateError } from '../lib/haptics'
 import { firstChar, groupLines, judgeTyped, type FlatWord } from '../logic/exercises'
 
 /**
@@ -38,7 +39,10 @@ export function useWordTyper(words: FlatWord[], given: boolean[]) {
   const focus = () => inputRef.current?.focus({ preventScroll: true })
 
   function finishWord(ok: boolean) {
-    if (!ok) setBad((b) => new Set(b).add(pos))
+    if (!ok) {
+      vibrateError()
+      setBad((b) => new Set(b).add(pos))
+    }
     setTyped('')
     setPos(skip(pos + 1))
   }

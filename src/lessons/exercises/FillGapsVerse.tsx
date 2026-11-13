@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { vibrateError } from '../../lib/haptics'
 import { flattenWords } from '../../logic/exercises'
 import WordFlow from '../../exercises/WordFlow'
 import { buildVerseGaps } from '../gaps'
@@ -43,7 +44,10 @@ export default function FillGapsVerse({ verse, settings, onAnswer }: StepProps) 
   function choose(option: string) {
     if (done) return
     const gap = gaps[cur]
-    if (option !== gap.answer) setWrong((w) => w.map((x, i) => (i === cur ? true : x)))
+    if (option !== gap.answer) {
+      vibrateError()
+      setWrong((w) => w.map((x, i) => (i === cur ? true : x)))
+    }
     const nextSolved = solved.map((s, i) => (i === cur ? true : s))
     setSolved(nextSolved)
     for (let k = 1; k <= gaps.length; k++) {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { vibrateError } from '../../lib/haptics'
 import { buildWhereQuestions } from '../where'
 import type { StepProps } from '../types'
 
@@ -26,6 +27,7 @@ export default function WhereWritten({ verse, settings, onAnswer }: StepProps) {
   function choose(value: string) {
     if (done) return
     const q = questions[qi]
+    if (value !== q.answer) vibrateError()
     // Ошибка не заставляет гадать: дальше идём с правильным ответом, а выбор помечается красным
     setChosen((c) => [...c, { value: q.answer, ok: value === q.answer }])
     setQi((i) => i + 1)

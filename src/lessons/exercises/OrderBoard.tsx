@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { vibrateError } from '../../lib/haptics'
 import { sameOrderText, scoreOrder, shuffleBlocks } from '../../logic/exercises'
 
 interface Props {
@@ -143,6 +144,7 @@ export default function OrderBoard({ texts, layout, labels, hint, onDone }: Prop
   }
 
   function check() {
+    if (score < 100) vibrateError()
     setChecked(true)
     onDone(score, texts.join(layout === 'chips' ? ' ' : '\n'))
   }

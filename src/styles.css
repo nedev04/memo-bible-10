@@ -2783,3 +2783,284 @@ html[data-theme="light"] .bridge-ref-hero {
     font-size: 0.84rem;
   }
 }
+
+/* ========================================================
+   НАПОМИНАНИЯ, WEB PUSH И ИТОГИ НЕДЕЛИ
+   ======================================================== */
+
+.weekly-digest-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+
+.weekly-digest-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.weekly-digest-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.weekly-digest-title-row svg {
+  color: var(--accent-light);
+}
+
+.weekly-digest-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.weekly-digest-close:hover {
+  background: var(--card-hover);
+  color: var(--ink);
+}
+
+.weekly-digest-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.weekly-digest-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.weekly-digest-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.weekly-digest-lbl {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.weekly-digest-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.7rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.weekly-digest-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: var(--accent-light);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reminders-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.reminder-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  color: var(--ink);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.reminder-info-banner.error {
+  background: color-mix(in srgb, var(--bad) 12%, var(--card));
+  border-color: color-mix(in srgb, var(--bad) 32%, var(--line));
+}
+
+.reminder-info-banner svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent-light);
+}
+
+.reminder-info-banner.error svg {
+  color: var(--bad);
+}
+
+.reminder-master-card,
+.reminder-list-card {
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+}
+
+.reminder-list-card {
+  padding: 0.25rem 1rem;
+}
+
+.reminder-item {
+  padding: 0.75rem 0;
+}
+
+.reminder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.reminder-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.reminder-row-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.18rem;
+}
+
+.reminder-row-desc {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.reminder-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 48px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--card-hover);
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.reminder-switch.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.reminder-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.reminder-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reminder-switch.on .reminder-switch-thumb {
+  transform: translateX(20px);
+}
+
+.reminder-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--line);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.reminder-time-input {
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  min-height: 36px;
+}
+
+.reminder-test-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.reminder-test-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.reminder-section-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
+
+.reminder-feedback {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 12px;
+  font-size: 0.84rem;
+}
+
+.reminder-feedback.ok {
+  background: color-mix(in srgb, var(--good) 14%, var(--card));
+  color: var(--good);
+  border: 1px solid color-mix(in srgb, var(--good) 32%, transparent);
+}
+
+.reminder-feedback.error {
+  background: color-mix(in srgb, var(--bad) 14%, var(--card));
+  color: var(--bad);
+  border: 1px solid color-mix(in srgb, var(--bad) 32%, transparent);
+}
+

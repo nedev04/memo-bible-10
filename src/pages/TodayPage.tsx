@@ -19,7 +19,7 @@ import { PWAInstallButton } from '../components/PWAInstallButton'
 import VerseReaderModal from '../components/VerseReaderModal'
 import { liveLessons, liveVerses } from '../db/db'
 import { buildLibrary, type LibraryGroup } from '../logic/library'
-import { isDue, STRENGTH_LABEL } from '../logic/mastery'
+import { isDue } from '../logic/mastery'
 
 const HISTORY_SHOWN = 5
 
