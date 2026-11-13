@@ -39,12 +39,6 @@ export default function RevealVerse({ verse, settings, onAnswer }: StepProps) {
                   <span
                     key={c.id}
                     className={`reveal-chunk ${isFresh ? 'fresh' : ''}`}
-                    style={{
-                      display: 'inline-block',
-                      whiteSpace: 'nowrap',
-                      marginRight: '0.35em',
-                      marginBottom: '0.25em',
-                    }}
                   >
                     {c.text}
                   </span>

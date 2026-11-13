@@ -34,10 +34,26 @@ export default function PartialVerse({ verse, settings, onAnswer }: StepProps) {
           const m = mask[i]
           if (m === null) return w.raw
           const open = peek === i
+          const origChars = [...w.core]
+          const maskChars = [...m]
           return (
             <span>
               {w.lead}
-              <button className={open ? 'peek open' : 'peek'} onClick={() => peekWord(i)}>{open ? w.core : m}</button>
+              <button
+                type="button"
+                className={open ? 'peek open' : 'peek'}
+                onClick={() => peekWord(i)}
+              >
+                {origChars.map((ch, k) =>
+                  !open && maskChars[k] === '_' && ch !== '_' ? (
+                    <span key={k} className="peek-hidden-ch" aria-hidden="true">
+                      {ch}
+                    </span>
+                  ) : (
+                    <span key={k}>{ch}</span>
+                  ),
+                )}
+              </button>
               {w.trail}
             </span>
           )

@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { buildMatchPairs } from '../match'
 import type { StepProps } from '../types'
 
@@ -104,28 +104,42 @@ export default function MatchRefs({ verses, onAnswer }: StepProps) {
       </p>
 
       <div className="match-columns">
-        <div className="match-col">
-          {data.left.map((item) => {
-            const isMatched = matchedKeys.has(item.key)
-            const isSelected = selectedLeft === item.key
-            const isError = errorPair?.left === item.key
-            const isExpanded = expandedKey === item.key
-            const cls = [
-              'match-card',
-              'match-card-left',
-              isMatched && 'ok',
-              isSelected && 'selected',
-              isError && 'bad',
-            ]
-              .filter(Boolean)
-              .join(' ')
+        {data.left.map((item, idx) => {
+          const rightItem = data.right[idx]
+          const isMatched = matchedKeys.has(item.key)
+          const isSelected = selectedLeft === item.key
+          const isError = errorPair?.left === item.key
+          const isExpanded = expandedKey === item.key
+          const leftCls = [
+            'match-card',
+            'match-card-left',
+            isExpanded && 'expanded',
+            isMatched && 'ok',
+            isSelected && 'selected',
+            isError && 'bad',
+          ]
+            .filter(Boolean)
+            .join(' ')
 
-            return (
+          const rMatched = rightItem ? matchedKeys.has(rightItem.key) : false
+          const rSelected = rightItem ? selectedRight === rightItem.key : false
+          const rError = rightItem ? errorPair?.right === rightItem.key : false
+          const rightCls = [
+            'match-card',
+            'match-card-right',
+            rMatched && 'ok',
+            rSelected && 'selected',
+            rError && 'bad',
+          ]
+            .filter(Boolean)
+            .join(' ')
+
+          return (
+            <Fragment key={item.key}>
               <div
-                key={item.key}
                 role="button"
                 tabIndex={0}
-                className={cls}
+                className={leftCls}
                 onClick={() => clickLeft(item.key)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -146,38 +160,20 @@ export default function MatchRefs({ verses, onAnswer }: StepProps) {
                   {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
               </div>
-            )
-          })}
-        </div>
 
-        <div className="match-col">
-          {data.right.map((item) => {
-            const isMatched = matchedKeys.has(item.key)
-            const isSelected = selectedRight === item.key
-            const isError = errorPair?.right === item.key
-            const cls = [
-              'match-card',
-              'match-card-right',
-              isMatched && 'ok',
-              isSelected && 'selected',
-              isError && 'bad',
-            ]
-              .filter(Boolean)
-              .join(' ')
-
-            return (
-              <button
-                key={item.key}
-                type="button"
-                className={cls}
-                disabled={isMatched}
-                onClick={() => clickRight(item.key)}
-              >
-                {item.ref}
-              </button>
-            )
-          })}
-        </div>
+              {rightItem && (
+                <button
+                  type="button"
+                  className={rightCls}
+                  disabled={rMatched}
+                  onClick={() => clickRight(rightItem.key)}
+                >
+                  {rightItem.ref}
+                </button>
+              )}
+            </Fragment>
+          )
+        })}
       </div>
 
       <div className="match-footer-status">
