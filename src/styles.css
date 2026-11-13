@@ -1951,6 +1951,80 @@ html[data-theme="light"] .today-stat-divider {
   font-weight: 600;
 }
 
+/* Диалоговое окно подтверждения (выход из урока и др.) */
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(10, 15, 28, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  animation: confirmFadeIn 0.16s ease-out;
+}
+
+.confirm-modal-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: 22px;
+  padding: 1.5rem 1.35rem 1.35rem;
+  text-align: center;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.28);
+  animation: confirmPopIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.confirm-modal-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 0.85rem;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bad) 12%, transparent);
+  color: var(--bad);
+}
+
+.confirm-modal-title {
+  margin: 0 0 0.45rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.confirm-modal-desc {
+  margin: 0 0 1.25rem;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.confirm-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.confirm-modal-actions .btn {
+  width: 100%;
+  min-height: 44px;
+}
+
+@keyframes confirmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes confirmPopIn {
+  from { opacity: 0; transform: scale(0.95) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 /* ========================================================
    ДОБАВЛЕНИЕ СТИХОВ (ADD PAGE)
    ======================================================== */
@@ -2168,15 +2242,15 @@ html[data-theme="light"] .today-stat-divider {
 .reveal-chunk {
   display: inline-block;
   white-space: nowrap;
-  padding: 0.08em 0.28em;
-  margin-right: 0.14em;
+  padding: 0.06em 0;
+  margin-right: 0.25em;
   margin-bottom: 0.25em;
-  border-radius: 6px;
+  border-radius: 5px;
 }
 .fresh {
   background: var(--mark);
   color: var(--mark-ink, #1e293b);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 0 0 0.1em var(--mark), 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 .reveal-bar {
   position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
@@ -2341,7 +2415,7 @@ html[data-theme="light"] .options .option-choice-btn {
   font-family: var(--font-text); font-size: 1.25rem; line-height: 1.6;
 }
 .peek-flow .flow-word-unit {
-  margin-right: 0.16em;
+  margin-right: 0.42em;
 }
 .peek {
   font: inherit;
@@ -2364,7 +2438,7 @@ html[data-theme="light"] .options .option-choice-btn {
 .peek.open {
   color: var(--mark-ink, #1e293b);
   background: var(--mark);
-  box-shadow: 0 0 0 3px var(--mark);
+  box-shadow: 0 0 0 2px var(--mark);
   text-decoration: none;
   border-radius: 3px;
 }

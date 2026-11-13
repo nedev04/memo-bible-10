@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
+import { LogOut } from 'lucide-react'
 import ProgressBar from '../components/ProgressBar'
 import { PASS_SCORE, PARTIAL_SCORE } from '../logic/config'
 import AssembleWords from './exercises/AssembleWords'
@@ -75,6 +76,7 @@ export default function LessonRunner({
   const [changes, setChanges] = useState<Map<string, 'up' | 'down'>>(new Map())
   const [done, setDone] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [confirmExit, setConfirmExit] = useState(false)
 
   const step = queue[index]
   const finishedOnce = useRef(false)
@@ -84,6 +86,15 @@ export default function LessonRunner({
     finishedOnce.current = true
     onFinish?.({ xp, mistakes, keys: [...new Set(steps.flatMap((s) => s.verseKeys))] })
   }, [done]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!confirmExit) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setConfirmExit(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [confirmExit])
 
   async function onAnswer(r: StepResult) {
     if (result || busy || done) return
@@ -118,7 +129,8 @@ export default function LessonRunner({
   }
 
   function close() {
-    if (done || confirm('Выйти из урока? Результаты уже пройденных упражнений сохранены.')) onClose()
+    if (done) onClose()
+    else setConfirmExit(true)
   }
 
   if (done) {
@@ -175,6 +187,46 @@ export default function LessonRunner({
           {result.detail && <span>{result.detail}</span>}
           {retries && result.score < PASS_SCORE && !step.retry && step.kind !== 'typing' && <small>Это упражнение повторится в конце урока.</small>}
           <button className="btn primary" autoFocus onClick={() => advance()}>Продолжить</button>
+        </div>
+      )}
+
+      {confirmExit && (
+        <div
+          className="confirm-modal-overlay"
+          onClick={() => setConfirmExit(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lesson-exit-title"
+        >
+          <div className="confirm-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-modal-icon" aria-hidden="true">
+              <LogOut size={22} />
+            </div>
+            <h2 id="lesson-exit-title" className="confirm-modal-title">Выйти из урока?</h2>
+            <p className="confirm-modal-desc">
+              Результаты уже пройденных упражнений сохранены.
+            </p>
+            <div className="confirm-modal-actions">
+              <button
+                type="button"
+                className="btn primary"
+                autoFocus
+                onClick={() => setConfirmExit(false)}
+              >
+                Продолжить
+              </button>
+              <button
+                type="button"
+                className="btn danger"
+                onClick={() => {
+                  setConfirmExit(false)
+                  onClose()
+                }}
+              >
+                Выйти
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
