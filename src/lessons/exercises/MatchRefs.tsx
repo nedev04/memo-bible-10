@@ -11,7 +11,7 @@ export default function MatchRefs({ verses, onAnswer }: StepProps) {
   const data = useMemo(() => buildMatchPairs(verses), [verses])
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null)
   const [selectedRight, setSelectedRight] = useState<string | null>(null)
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set())
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [matchedKeys, setMatchedKeys] = useState<Set<string>>(() => new Set())
   const [errorPair, setErrorPair] = useState<{ left: string; right: string } | null>(null)
   const [mistakesByKey, setMistakesByKey] = useState<Record<string, number>>({})
@@ -43,6 +43,7 @@ export default function MatchRefs({ verses, onAnswer }: StepProps) {
   }, [done, total, data.left, mistakesByKey, onAnswer])
 
   function tryPair(leftKey: string, rightKey: string) {
+    setExpandedKey((prev) => (prev === leftKey ? null : prev))
     if (leftKey === rightKey) {
       setMatchedKeys((prev) => new Set(prev).add(leftKey))
       setSelectedLeft(null)
@@ -64,22 +65,21 @@ export default function MatchRefs({ verses, onAnswer }: StepProps) {
   }
 
   function clickLeft(key: string) {
-    // По клику на строку стиха он раскрывается целиком (если уже открыт — можно свернуть кнопкой, либо остаётся читаемым)
-    setExpandedKeys((prev) => {
-      const next = new Set(prev)
-      if (next.has(key) && selectedLeft === key) {
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-      return next
-    })
-
-    if (matchedKeys.has(key) || errorPair) return
+    if (matchedKeys.has(key)) {
+      setExpandedKey((prev) => (prev === key ? null : key))
+      return
+    }
+    if (errorPair) return
     if (selectedRight) {
       tryPair(key, selectedRight)
+      return
+    }
+    if (selectedLeft === key) {
+      setSelectedLeft(null)
+      setExpandedKey((prev) => (prev === key ? null : prev))
     } else {
-      setSelectedLeft((prev) => (prev === key ? null : key))
+      setSelectedLeft(key)
+      setExpandedKey(key)
     }
   }
 
@@ -94,12 +94,7 @@ export default function MatchRefs({ verses, onAnswer }: StepProps) {
 
   function toggleExpandOnly(e: React.MouseEvent, key: string) {
     e.stopPropagation()
-    setExpandedKeys((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
+    setExpandedKey((prev) => (prev === key ? null : key))
   }
 
   return (
@@ -114,7 +109,7 @@ export default function MatchRefs({ verses, onAnswer }: StepProps) {
             const isMatched = matchedKeys.has(item.key)
             const isSelected = selectedLeft === item.key
             const isError = errorPair?.left === item.key
-            const isExpanded = expandedKeys.has(item.key)
+            const isExpanded = expandedKey === item.key
             const cls = [
               'match-card',
               'match-card-left',
