@@ -14,6 +14,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { loadBook } from '../bible/bible'
 import { formatRange, groupVerses, parseKey, TRANSLATION } from '../bible/refs'
+import { OfflineIndicator } from '../components/OfflineIndicator'
+import { PWAInstallButton } from '../components/PWAInstallButton'
 import VerseReaderModal from '../components/VerseReaderModal'
 import { liveLessons, liveVerses } from '../db/db'
 import { buildLibrary, type LibraryGroup } from '../logic/library'
@@ -168,6 +170,12 @@ export default function TodayPage() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Офлайн-статус и кнопка установки PWA под поиском */}
+      <div className="home-subbar">
+        <OfflineIndicator />
+        <PWAInstallButton />
       </div>
 
       {/* Если стихов вообще нет */}

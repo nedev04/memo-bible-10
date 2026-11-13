@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { WifiOff } from 'lucide-react'
+import { Wifi, WifiOff } from 'lucide-react'
 
 export function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState<boolean>(() => {
@@ -22,19 +22,33 @@ export function useOnlineStatus() {
   return isOnline
 }
 
-export const OfflineIndicator: React.FC = () => {
+interface OfflineIndicatorProps {
+  className?: string
+}
+
+export const OfflineIndicator: React.FC<OfflineIndicatorProps> = ({ className = '' }) => {
   const isOnline = useOnlineStatus()
-  const [showNotification, setShowNotification] = useState(false)
+  const [showNotification, setShowNotification] = useState(!isOnline)
+  const [isOrange, setIsOrange] = useState(true)
 
   useEffect(() => {
     if (!isOnline) {
       setShowNotification(true)
+      setIsOrange(true)
+      // Первые ~3.5 секунды подсвечивается оранжевым, затем становится спокойным серым
+      const timer = setTimeout(() => {
+        setIsOrange(false)
+      }, 3500)
+      return () => clearTimeout(timer)
     } else {
       // Когда интернет возвращается, скрываем через 2 секунды
-      const t = setTimeout(() => setShowNotification(false), 2000)
-      return () => clearTimeout(t)
+      if (showNotification) {
+        setIsOrange(false)
+        const t = setTimeout(() => setShowNotification(false), 2000)
+        return () => clearTimeout(t)
+      }
     }
-  }, [isOnline])
+  }, [isOnline, showNotification])
 
   if (!showNotification && isOnline) return null
 
@@ -42,20 +56,22 @@ export const OfflineIndicator: React.FC = () => {
     <div
       role="status"
       aria-live="polite"
-      className={`fixed top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium backdrop-blur-md shadow-lg transition-all duration-300 ${
+      className={`offline-notice-badge ${
         isOnline
-          ? 'bg-emerald-600/90 text-white'
-          : 'bg-amber-600/90 text-white border border-amber-400/30'
-      }`}
+          ? 'offline-notice-online'
+          : isOrange
+          ? 'offline-notice-orange'
+          : 'offline-notice-gray'
+      } ${className}`}
     >
       {isOnline ? (
         <>
-          <span className="h-2 w-2 rounded-full bg-white" />
+          <Wifi size={14} className="shrink-0" />
           <span>Связь восстановлена</span>
         </>
       ) : (
         <>
-          <WifiOff size={14} className="animate-pulse" />
+          <WifiOff size={14} className={`shrink-0 ${isOrange ? 'animate-pulse' : 'opacity-70'}`} />
           <span>Офлайн-режим — все стихи доступны</span>
         </>
       )}

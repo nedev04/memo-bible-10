@@ -1,6 +1,5 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
-import { OfflineIndicator } from './components/OfflineIndicator'
 import { SplashScreen } from './components/SplashScreen'
 import BibleAddPage from './pages/BibleAddPage'
 import LessonPage from './pages/LessonPage'
@@ -19,7 +18,6 @@ export default function App() {
         <SplashScreen />
         <HashRouter>
           <div className="app-shell">
-            <OfflineIndicator />
             <main className="app-main">
               <Routes>
                 <Route path="/" element={<TodayPage />} />

@@ -20,6 +20,18 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     
     <title>Наизусть — Заучивание стихов Библии</title>
+    <script>
+      window.__deferredPWAInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__deferredPWAInstallPrompt = e;
+        window.dispatchEvent(new Event('pwa-install-available'));
+      });
+      window.addEventListener('appinstalled', function () {
+        window.__deferredPWAInstallPrompt = null;
+        window.dispatchEvent(new Event('pwa-installed'));
+      });
+    </script>
     <meta name="description" content="Приложение для заучивания библейских стихов наизусть с интервальными повторениями и разнообразными упражнениями." />
     <meta property="og:title" content="Наизусть — Заучивание стихов Библии" />
     <meta property="og:description" content="Приложение для заучивания библейских стихов наизусть с интервальными повторениями и разнообразными упражнениями." />
