@@ -2269,8 +2269,16 @@ html[data-theme="light"] .today-stat-divider {
 .reveal-bar.col { flex-direction: column; align-items: stretch; }
 .counter { color: var(--muted); font-variant-numeric: tabular-nums; }
 
-.result { text-align: center; padding-top: 3rem; }
+.result { text-align: center; padding-top: 3rem; padding-bottom: 2rem; }
 .result h1 { font-size: 2.4rem; }
+.result-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2.25rem;
+}
 
 .exwrap { padding-bottom: 5rem; }
 .exwrap .hint { color: var(--muted); font-size: 0.95rem; min-height: 2.9em; }
@@ -2361,26 +2369,39 @@ html[data-theme="light"] .options .option-choice-btn {
   cursor: not-allowed;
 }
 
-.gap {
+.flow .gap {
+  display: inline-block;
   font: inherit;
+  font-weight: 700;
+  letter-spacing: inherit;
+  line-height: inherit;
+  vertical-align: baseline;
   border: none;
   border-bottom: 2px solid var(--muted);
   background: transparent;
   color: transparent;
   cursor: pointer;
-  padding: 0 0.2em;
-  min-width: 1.8em;
-  border-radius: 6px;
+  padding: 0;
+  margin: 0;
+  border-radius: 4px;
   transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.gap.cur {
+.flow .gap.cur {
   border-bottom: 2px solid var(--mark);
   background: color-mix(in srgb, var(--mark) 35%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mark) 45%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mark) 35%, transparent);
 }
-.filled {
+.flow .filled {
+  display: inline-block;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: inherit;
+  line-height: inherit;
+  vertical-align: baseline;
   color: var(--good);
-  padding: 0 0.2em;
+  padding: 0;
+  margin: 0;
+  border: none;
   border-bottom: 2px solid transparent;
 }
 
@@ -2402,7 +2423,7 @@ html[data-theme="light"] .options .option-choice-btn {
   position: absolute; left: 0; top: 0; width: 2px; height: 1.6em; padding: 0; border: 0;
   opacity: 0; font-size: 16px; pointer-events: none; caret-color: transparent;
 }
-.flow .missed, .filled.bad { color: var(--bad); }
+.flow .missed, .flow .filled.bad { color: var(--bad); }
 .flow .missed {
   text-decoration: none;
   background: color-mix(in srgb, var(--bad) 14%, transparent);
