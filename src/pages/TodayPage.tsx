@@ -23,7 +23,7 @@ import { PWAInstallButton } from '../components/PWAInstallButton'
 import VerseReaderModal from '../components/VerseReaderModal'
 import { db, liveLessons, liveVerses } from '../db/db'
 import { DAILY_XP_OPTIONS, usePreferences } from '../lib/preferences'
-import { computeActivityStats } from '../logic/activity'
+import { computeTodayActivity } from '../logic/activity'
 import { buildLibrary, type LibraryGroup } from '../logic/library'
 import { isDue } from '../logic/mastery'
 import { pluralRu } from '../reminders/engine'
@@ -46,7 +46,11 @@ const fmtDate = (t: number) =>
 export default function TodayPage() {
   const verses = useLiveQuery(() => liveVerses(), [])
   const lessons = useLiveQuery(() => liveLessons(), [])
-  const reviews = useLiveQuery(() => db.reviews.toArray(), [])
+  const [recentCutoff] = useState(() => Date.now() - 48 * 60 * 60 * 1000)
+  const recentReviews = useLiveQuery(
+    () => db.reviews.where('createdAt').above(recentCutoff).toArray(),
+    [recentCutoff],
+  )
   const { dailyXpGoal, setDailyXpGoal } = usePreferences()
   const [search, setSearch] = useState('')
   const [goalPickerOpen, setGoalPickerOpen] = useState(false)
@@ -108,7 +112,12 @@ export default function TodayPage() {
     return combined || 'Загрузка текста…'
   }
 
-  if (!verses || !lessons || !reviews) return null
+  const activity = useMemo(() => {
+    if (!lessons || !recentReviews) return null
+    return computeTodayActivity(lessons, recentReviews, Date.now())
+  }, [lessons, recentReviews])
+
+  if (!verses || !lessons || !recentReviews || !activity) return null
 
   const now = Date.now()
   const done = lessons.filter((l) => l.verseKeys.length > 0)
@@ -116,7 +125,6 @@ export default function TodayPage() {
   const dueCount = verses.filter((v) => v.strength > 0 && isDue(v, now)).length
   const recentLessons = done.slice(-HISTORY_SHOWN).reverse()
 
-  const activity = computeActivityStats(lessons, reviews, now)
   const goalPct = Math.min(100, Math.round((activity.todayXp / dailyXpGoal) * 100))
   const goalReached = activity.todayXp >= dailyXpGoal
 

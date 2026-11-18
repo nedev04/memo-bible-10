@@ -93,24 +93,49 @@ export function pluralRu(n: number, one: string, few: string, many: string): str
   return many
 }
 
+const validTzCache = new Map<string, string>()
+const dateFormatterCache = new Map<string, Intl.DateTimeFormat>()
+const timeFormatterCache = new Map<string, Intl.DateTimeFormat>()
+
 function safeTimeZone(tz?: string): string {
   if (!tz) return 'UTC'
+  const cached = validTzCache.get(tz)
+  if (cached) return cached
   try {
     Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(0)
+    validTzCache.set(tz, tz)
     return tz
   } catch {
+    validTzCache.set(tz, 'UTC')
     return 'UTC'
   }
 }
 
 export function localDateKey(timestamp: number, timeZone?: string): string {
   const tz = safeTimeZone(timeZone)
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date(timestamp))
+  if (tz === 'UTC') {
+    const dt = new Date(timestamp)
+    const y = dt.getUTCFullYear()
+    const m = String(dt.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(dt.getUTCDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+
+  let fmt = dateFormatterCache.get(tz)
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    dateFormatterCache.set(tz, fmt)
+  }
+  const formatted = fmt.format(timestamp)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(formatted)) {
+    return formatted
+  }
+  const parts = fmt.formatToParts(new Date(timestamp))
   const year = parts.find((p) => p.type === 'year')?.value ?? '1970'
   const month = parts.find((p) => p.type === 'month')?.value ?? '01'
   const day = parts.find((p) => p.type === 'day')?.value ?? '01'
@@ -119,12 +144,17 @@ export function localDateKey(timestamp: number, timeZone?: string): string {
 
 export function localTimeMinutes(timestamp: number, timeZone?: string): number {
   const tz = safeTimeZone(timeZone)
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: tz,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(timestamp))
+  let fmt = timeFormatterCache.get(tz)
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+    timeFormatterCache.set(tz, fmt)
+  }
+  const parts = fmt.formatToParts(new Date(timestamp))
   const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0')
   const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0')
   return hour * 60 + minute

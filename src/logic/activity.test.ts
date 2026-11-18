@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeActivityStats, getHardestVerses, HEATMAP_WEEKS } from './activity'
+import { computeActivityStats, computeTodayActivity, getHardestVerses, HEATMAP_WEEKS } from './activity'
 import type { VerseState } from '../types'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -79,6 +79,28 @@ describe('computeActivityStats', () => {
     expect(stats.currentStreak).toBe(0)
     const todayCell = stats.heatmapDays.find((d) => d.dateKey === '2026-11-18')
     expect(todayCell?.level).toBe(1)
+  })
+
+  it('computeTodayActivity matches computeActivityStats for today and runs fast on large histories', () => {
+    const now = ts('2026-11-18')
+    const lessons = Array.from({ length: 200 }, (_, i) => ({
+      createdAt: now - i * DAY,
+      verseKeys: ['rst:mat:5:5'],
+      xp: 25,
+    }))
+    const reviews = Array.from({ length: 4000 }, (_, i) => ({
+      createdAt: now - (i % 365) * DAY,
+      xp: 5,
+    }))
+
+    const t0 = performance.now()
+    const stats = computeActivityStats(lessons, reviews, now, 'Europe/Moscow')
+    const today = computeTodayActivity(lessons, reviews.slice(0, 40), now, 'Europe/Moscow')
+    const elapsedMs = performance.now() - t0
+
+    expect(today.currentStreak).toBe(stats.currentStreak)
+    expect(today.practicedToday).toBe(stats.practicedToday)
+    expect(elapsedMs).toBeLessThan(200)
   })
 })
 

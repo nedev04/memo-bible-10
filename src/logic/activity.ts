@@ -4,6 +4,25 @@ import { computeStreak, localDateKey, localDayDiff, shiftDateKey } from '../remi
 import type { LessonRecord, VerseReview, VerseState } from '../types'
 
 export const HEATMAP_WEEKS = 12
+const DAY_MS = 24 * 60 * 60 * 1000
+
+const SHORT_MONTHS_RU = [
+  'янв', 'фев', 'мар', 'апр', 'май', 'июн',
+  'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
+] as const
+
+const GENITIVE_MONTHS_RU = [
+  'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+] as const
+
+export function getUserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {
+    return 'UTC'
+  }
+}
 
 export interface HeatmapDay {
   dateKey: string
@@ -36,6 +55,13 @@ export interface ActivityStats {
   monthLabels: HeatmapMonthLabel[]
 }
 
+export interface TodayActivitySummary {
+  currentStreak: number
+  practicedToday: boolean
+  todayKey: string
+  todayXp: number
+}
+
 export interface HardVerseItem {
   verse: VerseState
   refLabel: string
@@ -44,27 +70,20 @@ export interface HardVerseItem {
 function weekdayMon0(dateKey: string): number {
   const [y, m, d] = dateKey.split('-').map(Number)
   if (!y || !m || !d) return 0
-  // Date.getUTCDay(): 0 = Sun, 1 = Mon ... 6 = Sat -> convert to 0 = Mon ... 6 = Sun
   return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7
 }
 
 function shortMonthRu(dateKey: string): string {
-  const [y, m, d] = dateKey.split('-').map(Number)
-  if (!y || !m || !d) return ''
-  const raw = new Intl.DateTimeFormat('ru-RU', { month: 'short', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(y, m - 1, d)),
-  )
-  return raw.replace(/\.$/, '')
+  const m = Number(dateKey.slice(5, 7))
+  return SHORT_MONTHS_RU[m - 1] ?? ''
 }
 
 export function formatDateKeyRu(dateKey: string): string {
-  const [y, m, d] = dateKey.split('-').map(Number)
-  if (!y || !m || !d) return dateKey
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(y, m - 1, d)))
+  const m = Number(dateKey.slice(5, 7))
+  const d = Number(dateKey.slice(8, 10))
+  const monthName = GENITIVE_MONTHS_RU[m - 1]
+  if (!d || !monthName) return dateKey
+  return `${d} ${monthName}`
 }
 
 function xpToHeatLevel(xp: number, lessons: number): 0 | 1 | 2 | 3 | 4 {
@@ -75,11 +94,46 @@ function xpToHeatLevel(xp: number, lessons: number): 0 | 1 | 2 | 3 | 4 {
   return 4
 }
 
+/** Быстрая сводка только для главного экрана (без построения 84-дневной теплокарты) */
+export function computeTodayActivity(
+  lessons: Pick<LessonRecord, 'createdAt' | 'verseKeys' | 'xp'>[],
+  recentReviews: Pick<VerseReview, 'createdAt' | 'xp'>[],
+  now: number,
+  timeZone = getUserTimeZone(),
+): TodayActivitySummary {
+  const todayKey = localDateKey(now, timeZone)
+  const { streak: currentStreak, practicedToday } = computeStreak(lessons, now, timeZone)
+  const cutoff = now - 36 * 60 * 60 * 1000
+
+  let lessonXpToday = 0
+  for (const l of lessons) {
+    if (l.verseKeys.length === 0 || l.createdAt < cutoff) continue
+    if (localDateKey(l.createdAt, timeZone) === todayKey) {
+      lessonXpToday += l.xp || 0
+    }
+  }
+
+  let reviewXpToday = 0
+  for (const r of recentReviews) {
+    if (r.createdAt < cutoff) continue
+    if (localDateKey(r.createdAt, timeZone) === todayKey) {
+      reviewXpToday += r.xp || 0
+    }
+  }
+
+  return {
+    currentStreak,
+    practicedToday,
+    todayKey,
+    todayXp: Math.max(reviewXpToday, lessonXpToday),
+  }
+}
+
 export function computeActivityStats(
   lessons: Pick<LessonRecord, 'createdAt' | 'verseKeys' | 'xp'>[],
   reviews: Pick<VerseReview, 'createdAt' | 'xp'>[],
   now: number,
-  timeZone?: string,
+  timeZone = getUserTimeZone(),
 ): ActivityStats {
   const todayKey = localDateKey(now, timeZone)
   const { streak: currentStreak, practicedToday } = computeStreak(lessons, now, timeZone)
@@ -95,7 +149,10 @@ export function computeActivityStats(
     lessonXpByDay.set(key, (lessonXpByDay.get(key) ?? 0) + (l.xp || 0))
   }
 
+  // Для теплокарты и сегодняшнего XP нужны только записи в пределах окна 12 недель (+ буфер 2 дня)
+  const reviewWindowCutoff = now - (HEATMAP_WEEKS * 7 + 2) * DAY_MS
   for (const r of reviews) {
+    if (r.createdAt < reviewWindowCutoff) continue
     const key = localDateKey(r.createdAt, timeZone)
     reviewXpByDay.set(key, (reviewXpByDay.get(key) ?? 0) + (r.xp || 0))
   }
