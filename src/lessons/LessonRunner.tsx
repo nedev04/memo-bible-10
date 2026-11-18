@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ComponentType } from 'react'
 import { LogOut } from 'lucide-react'
 import ProgressBar from '../components/ProgressBar'
 import { vibrateError } from '../lib/haptics'
+import { playCompleteSound, playErrorSound, playSuccessSound } from '../lib/sound'
 import { PASS_SCORE, PARTIAL_SCORE } from '../logic/config'
 import AssembleWords from './exercises/AssembleWords'
 import BridgeVerse from './exercises/BridgeVerse'
@@ -83,6 +84,7 @@ export default function LessonRunner({
   useEffect(() => {
     if (!done || finishedOnce.current) return
     finishedOnce.current = true
+    playCompleteSound()
     onFinish?.({ xp, mistakes, keys: [...new Set(steps.flatMap((s) => s.verseKeys))] })
   }, [done]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -113,7 +115,12 @@ export default function LessonRunner({
       advance(queue.length)
       return
     }
-    if (r.score < PASS_SCORE) vibrateError()
+    if (r.score < PASS_SCORE) {
+      vibrateError()
+      playErrorSound()
+    } else {
+      playSuccessSound()
+    }
     setResult(r)
     // Ошибка: то же упражнение будет ещё раз в конце урока (один раз). Ввод по памяти не повторяется: он длинный.
     if (retries && r.score < PASS_SCORE && !step.retry && step.kind !== 'typing') {

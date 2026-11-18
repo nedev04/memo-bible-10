@@ -148,7 +148,7 @@ export function localDayDiff(newerDateKey: string, olderDateKey: string): number
   return dateKeyToEpochDay(newerDateKey) - dateKeyToEpochDay(olderDateKey)
 }
 
-function shiftDateKey(dateKey: string, deltaDays: number): string {
+export function shiftDateKey(dateKey: string, deltaDays: number): string {
   const epochDay = dateKeyToEpochDay(dateKey) + deltaDays
   const dt = new Date(epochDay * DAY)
   const y = dt.getUTCFullYear()

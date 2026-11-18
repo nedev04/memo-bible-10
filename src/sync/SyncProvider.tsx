@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import ConfirmModal from '../components/ConfirmModal'
 import { countLiveVerses, wipeLocal } from '../db/db'
 import { cloudConfigured, supabase } from './client'
 import { syncOnce } from './sync'
@@ -61,6 +62,22 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<SyncStatus>('idle')
   const [lastSyncAt, setLast] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [accountConfirmOpen, setAccountConfirmOpen] = useState(false)
+  const accountConfirmResolver = useRef<((ok: boolean) => void) | null>(null)
+
+  function askAccountSwitch(): Promise<boolean> {
+    return new Promise((resolve) => {
+      accountConfirmResolver.current = resolve
+      setAccountConfirmOpen(true)
+    })
+  }
+
+  function resolveAccountSwitch(ok: boolean) {
+    setAccountConfirmOpen(false)
+    const resolve = accountConfirmResolver.current
+    accountConfirmResolver.current = null
+    resolve?.(ok)
+  }
 
   const userRef = useRef<SyncUser | null>(null)
   const running = useRef(false)
@@ -122,10 +139,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     if (u) {
       const prev = getSyncUserId()
       if (prev && prev !== u.id && (await countLiveVerses()) > 0) {
-        const ok = confirm(
-          'На этом устройстве остались данные другого аккаунта. Удалить их и войти в новый аккаунт? ' +
-            'Если отказаться, вход будет отменён.',
-        )
+        const ok = await askAccountSwitch()
         if (!ok) {
           await supabase.auth.signOut()
           return
@@ -227,6 +241,20 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [ready, user, status, lastSyncAt, error, runSync, signIn, signUp, updateName, signOut],
   )
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+  return (
+    <Ctx.Provider value={value}>
+      {children}
+      <ConfirmModal
+        isOpen={accountConfirmOpen}
+        title="Сменить аккаунт?"
+        description="На этом устройстве остались данные другого аккаунта. Удалить их и войти в новый аккаунт? Если отказаться, вход будет отменён."
+        confirmLabel="Удалить и войти"
+        cancelLabel="Отмена"
+        tone="danger"
+        onConfirm={() => resolveAccountSwitch(true)}
+        onCancel={() => resolveAccountSwitch(false)}
+      />
+    </Ctx.Provider>
+  )
 }
 

@@ -14,15 +14,19 @@ import {
   ShieldCheck,
   Sun,
   Smartphone,
+  Target,
   Trash2,
   Type,
   Upload,
+  Volume2,
   X
 } from 'lucide-react'
 import { useRef, useState } from 'react'
+import ConfirmModal from '../components/ConfirmModal'
 import RemindersModal from '../components/RemindersModal'
 import { usePWAInstall } from '../components/usePWAInstall'
-import { clearAll, countLiveVerses, db, liveVerses } from '../db/db'
+import { clearAll, countLiveVerses, db } from '../db/db'
+import { DAILY_XP_OPTIONS, usePreferences } from '../lib/preferences'
 import { loadReminderSettings } from '../reminders/pushClient'
 import { useSync } from '../sync/SyncProvider'
 import { useTheme, type FontSize, type Theme } from '../theme/ThemeContext'
@@ -38,9 +42,25 @@ export default function SettingsPage() {
 
   // Модальные окна
   const [activeModal, setActiveModal] = useState<
-    'theme' | 'font' | 'reminders' | 'pwa' | 'cloud' | 'method' | 'bible' | 'privacy' | null
+    'theme' | 'font' | 'dailyGoal' | 'reminders' | 'pwa' | 'cloud' | 'method' | 'bible' | 'privacy' | null
   >(null)
   const [reminderSettings, setReminderSettings] = useState(() => loadReminderSettings())
+  const {
+    dailyXpGoal,
+    setDailyXpGoal,
+    vibrationEnabled,
+    setVibrationEnabled,
+    soundEnabled,
+    setSoundEnabled,
+  } = usePreferences()
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string
+    description: string
+    confirmLabel: string
+    tone: 'primary' | 'danger'
+    hideCancel?: boolean
+    onConfirm: () => void | Promise<void>
+  } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
   function showToast(text: string) {
@@ -85,37 +105,53 @@ export default function SettingsPage() {
       if (!json.verses || !Array.isArray(json.verses)) {
         throw new Error('Неверный формат файла')
       }
-      if (!confirm(`Импортировать ${json.verses.length} стихов? Существующие данные сохранятся.`)) {
-        return
-      }
-      for (const v of json.verses) {
-        await db.verses.put(v)
-      }
-      if (Array.isArray(json.lessons)) {
-        for (const l of json.lessons) await db.lessons.put(l)
-      }
-      if (Array.isArray(json.reviews)) {
-        for (const r of json.reviews) await db.reviews.put(r)
-      }
-      showToast(`Успешно импортировано ${json.verses.length} стихов!`)
-    } catch (err) {
-      alert('Ошибка при импорте: проверьте формат JSON файла.')
+      setConfirmDialog({
+        title: 'Импорт резервной копии',
+        description: `Импортировать ${json.verses.length} стихов? Существующие данные сохранятся.`,
+        confirmLabel: 'Импортировать',
+        tone: 'primary',
+        onConfirm: async () => {
+          setConfirmDialog(null)
+          for (const v of json.verses) {
+            await db.verses.put(v)
+          }
+          if (Array.isArray(json.lessons)) {
+            for (const l of json.lessons) await db.lessons.put(l)
+          }
+          if (Array.isArray(json.reviews)) {
+            for (const r of json.reviews) await db.reviews.put(r)
+          }
+          showToast(`Успешно импортировано ${json.verses.length} стихов!`)
+        },
+      })
+    } catch {
+      setConfirmDialog({
+        title: 'Ошибка импорта',
+        description: 'Не удалось прочитать файл. Проверьте, что это корректный JSON-экспорт.',
+        confirmLabel: 'Понятно',
+        tone: 'primary',
+        hideCancel: true,
+        onConfirm: () => setConfirmDialog(null),
+      })
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
   // Очистка данных
-  async function handleClearAll() {
-    if (
-      !confirm(
-        'Удалить все стихи и весь прогресс? Это действие нельзя отменить. Если подключено облако, стихи удалятся и там.'
-      )
-    ) {
-      return
-    }
-    await clearAll()
-    showToast('Все локальные данные удалены')
+  function handleClearAll() {
+    setConfirmDialog({
+      title: 'Очистить все данные?',
+      description:
+        'Удалить все стихи и весь прогресс? Это действие нельзя отменить. Если подключено облако, стихи удалятся и там.',
+      confirmLabel: 'Удалить',
+      tone: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        await clearAll()
+        showToast('Все локальные данные удалены')
+      },
+    })
   }
 
   // Поделиться приложением
@@ -269,6 +305,70 @@ export default function SettingsPage() {
               <ChevronRight size={18} className="chevron" />
             </div>
           </button>
+
+          <div className="settings-row-divider" />
+
+          {/* Дневная цель XP */}
+          <button
+            className="settings-row"
+            onClick={() => setActiveModal('dailyGoal')}
+            aria-label="Выбрать дневную цель XP"
+          >
+            <div className="settings-row-left">
+              <div className="settings-row-icon">
+                <Target size={20} />
+              </div>
+              <span className="settings-row-title">Дневная цель</span>
+            </div>
+            <div className="settings-row-right">
+              <span className="settings-row-value">{dailyXpGoal} XP</span>
+              <ChevronRight size={18} className="chevron" />
+            </div>
+          </button>
+
+          <div className="settings-row-divider" />
+
+          {/* Вибрация при ошибке */}
+          <div className="settings-row settings-row-static">
+            <div className="settings-row-left">
+              <div className="settings-row-icon">
+                <Smartphone size={20} />
+              </div>
+              <span className="settings-row-title">Вибрация при ошибке</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={vibrationEnabled}
+              aria-label="Вибрация при ошибке"
+              className={`reminder-switch ${vibrationEnabled ? 'on' : ''}`}
+              onClick={() => setVibrationEnabled(!vibrationEnabled)}
+            >
+              <span className="reminder-switch-thumb" />
+            </button>
+          </div>
+
+          <div className="settings-row-divider" />
+
+          {/* Звуковые эффекты */}
+          <div className="settings-row settings-row-static">
+            <div className="settings-row-left">
+              <div className="settings-row-icon">
+                <Volume2 size={20} />
+              </div>
+              <span className="settings-row-title">Звуковые эффекты</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={soundEnabled}
+              aria-label="Звуковые эффекты"
+              className={`reminder-switch ${soundEnabled ? 'on' : ''}`}
+              onClick={() => setSoundEnabled(!soundEnabled)}
+            >
+              <span className="reminder-switch-thumb" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -819,11 +919,67 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* 9. Выбор дневной цели */}
+      {activeModal === 'dailyGoal' && (
+        <div className="modal-sheet-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-sheet-header">
+              <h3>Дневная цель</h3>
+              <button className="modal-close-btn" onClick={() => setActiveModal(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-sheet-body">
+              {DAILY_XP_OPTIONS.map((opt) => {
+                const desc =
+                  opt === 15
+                    ? 'Лёгкая · 1–2 минуты в день'
+                    : opt === 30
+                    ? 'Обычная · 3–5 минут в день'
+                    : opt === 50
+                    ? 'Усиленная · 7–10 минут в день'
+                    : 'Интенсивная · 15+ минут в день'
+                return (
+                  <button
+                    key={opt}
+                    className={`modal-option-row ${dailyXpGoal === opt ? 'selected' : ''}`}
+                    onClick={() => {
+                      setDailyXpGoal(opt)
+                      setActiveModal(null)
+                    }}
+                  >
+                    <div>
+                      <div className="font-medium">{opt} XP в день</div>
+                      <small className="text-xs text-slate-400">{desc}</small>
+                    </div>
+                    {dailyXpGoal === opt && <Check size={18} className="text-blue-400" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       <RemindersModal
         isOpen={activeModal === 'reminders'}
         onClose={() => setActiveModal(null)}
         settings={reminderSettings}
         onSettingsChange={setReminderSettings}
+      />
+
+      <ConfirmModal
+        isOpen={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        description={confirmDialog?.description ?? ''}
+        confirmLabel={confirmDialog?.confirmLabel ?? 'Подтвердить'}
+        cancelLabel="Отмена"
+        hideCancel={confirmDialog?.hideCancel}
+        tone={confirmDialog?.tone ?? 'primary'}
+        onConfirm={() => {
+          void confirmDialog?.onConfirm()
+        }}
+        onCancel={() => setConfirmDialog(null)}
       />
     </div>
   )

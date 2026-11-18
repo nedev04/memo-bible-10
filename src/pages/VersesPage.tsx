@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom'
 import { loadBook } from '../bible/bible'
 import { bookOrder, getBook } from '../bible/books'
 import { formatRange, TRANSLATION } from '../bible/refs'
+import ConfirmModal from '../components/ConfirmModal'
 import VerseReaderModal from '../components/VerseReaderModal'
 import { liveVerses, removeVerses } from '../db/db'
 import { buildLibrary, levelCounts, type LibraryGroup } from '../logic/library'
@@ -98,6 +99,7 @@ export default function VersesPage() {
     level: any
     keys: string[]
   } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<LibraryGroup | null>(null)
 
   const library = useMemo(() => buildLibrary(verses ?? []), [verses])
   const counts = useMemo(() => levelCounts(verses ?? []), [verses])
@@ -153,11 +155,16 @@ export default function VersesPage() {
     localStorage.setItem('memo_favorites', JSON.stringify(next))
   }
 
-  async function handleDeleteGroup(group: LibraryGroup, e: React.MouseEvent) {
+  function handleDeleteGroup(group: LibraryGroup, e: React.MouseEvent) {
     e.stopPropagation()
-    const label = formatRange(group)
-    if (!confirm(`Убрать «${label}» из списка изучаемых стихов?`)) return
-    await removeVerses(group.keys)
+    setDeleteTarget(group)
+  }
+
+  async function confirmDeleteGroup() {
+    if (!deleteTarget) return
+    const target = deleteTarget
+    setDeleteTarget(null)
+    await removeVerses(target.keys)
   }
 
   function toggleBookCollapse(bookId: string) {
@@ -263,6 +270,22 @@ export default function VersesPage() {
           keys={readerVerse.keys}
         />
       )}
+
+      <ConfirmModal
+        isOpen={deleteTarget !== null}
+        title="Убрать стихи?"
+        description={
+          deleteTarget
+            ? `Убрать «${formatRange(deleteTarget)}» из списка изучаемых стихов?`
+            : ''
+        }
+        confirmLabel="Убрать"
+        cancelLabel="Отмена"
+        tone="danger"
+        icon={<Trash2 size={22} />}
+        onConfirm={() => void confirmDeleteGroup()}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {/* Верхний блок: Поиск и сортировка (без внутренней синей рамки) */}
       <div className="search-bar-wrap">

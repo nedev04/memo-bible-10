@@ -2,13 +2,17 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowRight,
   BookOpen,
+  CheckCircle2,
   ChevronRight,
   Clock,
+  Flame,
   Play,
+  Plus,
   RotateCcw,
   Search,
   Sparkles,
-  X
+  Target,
+  X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -17,9 +21,12 @@ import { formatRange, groupVerses, parseKey, TRANSLATION } from '../bible/refs'
 import { OfflineIndicator } from '../components/OfflineIndicator'
 import { PWAInstallButton } from '../components/PWAInstallButton'
 import VerseReaderModal from '../components/VerseReaderModal'
-import { liveLessons, liveVerses } from '../db/db'
+import { db, liveLessons, liveVerses } from '../db/db'
+import { DAILY_XP_OPTIONS, usePreferences } from '../lib/preferences'
+import { computeActivityStats } from '../logic/activity'
 import { buildLibrary, type LibraryGroup } from '../logic/library'
 import { isDue } from '../logic/mastery'
+import { pluralRu } from '../reminders/engine'
 
 const HISTORY_SHOWN = 5
 
@@ -39,7 +46,10 @@ const fmtDate = (t: number) =>
 export default function TodayPage() {
   const verses = useLiveQuery(() => liveVerses(), [])
   const lessons = useLiveQuery(() => liveLessons(), [])
+  const reviews = useLiveQuery(() => db.reviews.toArray(), [])
+  const { dailyXpGoal, setDailyXpGoal } = usePreferences()
   const [search, setSearch] = useState('')
+  const [goalPickerOpen, setGoalPickerOpen] = useState(false)
   const [verseTexts, setVerseTexts] = useState<Record<string, string>>({})
 
   // Выбранный стих для модального окна чтения
@@ -58,7 +68,6 @@ export default function TodayPage() {
     if (!verses || verses.length === 0) return
     let active = true
 
-    // Собираем все уникальные книги из добавленных стихов
     const bookSet = new Set(verses.map((v) => v.book))
 
     Promise.all(
@@ -99,7 +108,7 @@ export default function TodayPage() {
     return combined || 'Загрузка текста…'
   }
 
-  if (!verses || !lessons) return null
+  if (!verses || !lessons || !reviews) return null
 
   const now = Date.now()
   const done = lessons.filter((l) => l.verseKeys.length > 0)
@@ -107,20 +116,25 @@ export default function TodayPage() {
   const dueCount = verses.filter((v) => v.strength > 0 && isDue(v, now)).length
   const recentLessons = done.slice(-HISTORY_SHOWN).reverse()
 
-  // Поиск
-  const filteredLibrary = search.trim()
+  const activity = computeActivityStats(lessons, reviews, now)
+  const goalPct = Math.min(100, Math.round((activity.todayXp / dailyXpGoal) * 100))
+  const goalReached = activity.todayXp >= dailyXpGoal
+
+  const trimmedSearch = search.trim()
+  const searchResults = trimmedSearch
     ? library.filter((g) => {
         const refStr = formatRange(g).toLowerCase()
-        const textStr = (verseTexts[g.keys[0]] || '').toLowerCase()
-        const q = search.toLowerCase()
+        const textStr = getGroupSnippet(g).toLowerCase()
+        const q = trimmedSearch.toLowerCase()
         return refStr.includes(q) || textStr.includes(q)
       })
-    : library
+    : []
 
   // Недавно открытые / активные стихи (первые 6 групп)
-  const recentGroups = filteredLibrary.slice(0, 6)
+  const recentGroups = library.slice(0, 6)
   // Стихи к повторению
   const dueGroups = library.filter((g) => isDue({ nextReviewAt: g.soonest }, now)).slice(0, 8)
+  const queueCaughtUp = dueGroups.length === 0 && newCount === 0
 
   function openReader(group: LibraryGroup) {
     const ref = formatRange(group)
@@ -149,7 +163,7 @@ export default function TodayPage() {
         />
       )}
 
-      {/* Поисковая строка в стиле Скриншота 4 */}
+      {/* Поисковая строка */}
       <div className="search-bar-wrap">
         <div className="search-bar">
           <Search size={18} className="search-icon" />
@@ -194,13 +208,89 @@ export default function TodayPage() {
             <span>Добавить стихи из Библии</span>
           </Link>
         </div>
+      ) : trimmedSearch ? (
+        /* Поиск по всей библиотеке стихов */
+        <div className="home-section">
+          <div className="home-section-header">
+            <div className="flex items-center gap-2">
+              <Search size={18} className="text-blue-400" />
+              <h3 className="home-section-title">Результаты поиска</h3>
+            </div>
+            <span className="home-search-count">Найдено: {searchResults.length}</span>
+          </div>
+
+          {searchResults.length === 0 ? (
+            <div className="home-search-empty">
+              <p className="home-search-empty-text">
+                По запросу «{trimmedSearch}» ничего не найдено.
+              </p>
+              <button type="button" className="btn ghost" onClick={() => setSearch('')}>
+                Сбросить поиск
+              </button>
+            </div>
+          ) : (
+            <div className="home-due-list">
+              {searchResults.map((g) => {
+                const label = formatRange(g)
+                const text = getGroupSnippet(g)
+                return (
+                  <div key={label} className="home-due-item">
+                    <div
+                      className="home-due-item-clickable"
+                      onClick={() => openReader(g)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          openReader(g)
+                        }
+                      }}
+                    >
+                      <div className="home-due-badge" data-strength={g.minStrength}>
+                        {g.minStrength}
+                      </div>
+                      <div className="home-due-content">
+                        <div className="home-due-title">{label}</div>
+                        <div className="home-due-snippet">{text}</div>
+                      </div>
+                    </div>
+                    <Link
+                      to={`/practice?keys=${g.keys.join(',')}`}
+                      className="home-due-action"
+                      title="Тренировать"
+                      aria-label={`Тренировать ${label}`}
+                    >
+                      <Play size={15} />
+                    </Link>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       ) : (
         <>
-          {/* Главная карточка: Урок сегодня */}
+          {/* Главная карточка: Урок сегодня + Серия + Дневная цель */}
           <div className="today-lesson-card">
             <div className="today-lesson-header">
               <div className="today-lesson-info">
-                <span className="today-lesson-badge">Урок {done.length + 1}</span>
+                <div className="today-lesson-badges-row">
+                  <span className="today-lesson-badge">Урок {done.length + 1}</span>
+                  <span
+                    className={`today-streak-pill ${activity.currentStreak > 0 ? 'active' : ''} ${activity.practicedToday ? 'lit' : ''}`}
+                    title={
+                      activity.practicedToday
+                        ? 'Серия на сегодня засчитана'
+                        : 'Пройдите урок, чтобы продлить серию'
+                    }
+                  >
+                    <Flame size={13} />
+                    <span>
+                      {activity.currentStreak} {pluralRu(activity.currentStreak, 'день', 'дня', 'дней')}
+                    </span>
+                  </span>
+                </div>
                 <h2 className="today-lesson-title">Ежедневное повторение</h2>
               </div>
 
@@ -210,7 +300,7 @@ export default function TodayPage() {
               </Link>
             </div>
 
-            {/* Вытянутая на всю ширину полоска со статистикой без переносов */}
+            {/* Полоска со статистикой */}
             <div className="today-lesson-stats-bar">
               <div className="today-stat-item">
                 <span className="today-stat-label">Новых:</span>
@@ -224,9 +314,51 @@ export default function TodayPage() {
                 </span>
               </div>
             </div>
+
+            {/* Прогресс дневной цели */}
+            <div className="today-goal-wrap">
+              <button
+                type="button"
+                className="today-goal-row"
+                onClick={() => setGoalPickerOpen((v) => !v)}
+                aria-expanded={goalPickerOpen}
+                title="Нажмите, чтобы изменить дневную цель"
+              >
+                <span className="today-goal-label">
+                  <Target size={14} />
+                  <span>{goalReached ? 'Цель дня достигнута!' : 'Дневная цель'}</span>
+                </span>
+                <span className={`today-goal-xp ${goalReached ? 'done' : ''}`}>
+                  {activity.todayXp} / {dailyXpGoal} XP
+                </span>
+              </button>
+              <div className="today-goal-track" aria-hidden="true">
+                <div
+                  className={`today-goal-fill ${goalReached ? 'done' : ''}`}
+                  style={{ width: `${goalPct}%` }}
+                />
+              </div>
+              {goalPickerOpen && (
+                <div className="today-goal-picker" role="group" aria-label="Выберите дневную цель XP">
+                  {DAILY_XP_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      className={`today-goal-chip ${dailyXpGoal === opt ? 'active' : ''}`}
+                      onClick={() => {
+                        setDailyXpGoal(opt)
+                        setGoalPickerOpen(false)
+                      }}
+                    >
+                      {opt} XP
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Секция: Недавно открытые / Активные стихи (Сетка 2x3 как на скриншоте 4) */}
+          {/* Секция: Активные стихи (Сетка 2x3) */}
           <div className="home-section">
             <div className="home-section-header">
               <div className="flex items-center gap-2">
@@ -265,8 +397,8 @@ export default function TodayPage() {
             </div>
           </div>
 
-          {/* Секция: Стихи к повторению */}
-          {dueGroups.length > 0 && (
+          {/* Секция: Стихи к повторению ИЛИ карточка при пустой очереди */}
+          {dueGroups.length > 0 ? (
             <div className="home-section">
               <div className="home-section-header">
                 <div className="flex items-center gap-2">
@@ -291,6 +423,12 @@ export default function TodayPage() {
                         onClick={() => openReader(g)}
                         role="button"
                         tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            openReader(g)
+                          }
+                        }}
                       >
                         <div className="home-due-badge" data-strength={g.minStrength}>
                           {g.minStrength}
@@ -313,6 +451,33 @@ export default function TodayPage() {
                 })}
               </div>
             </div>
+          ) : (
+            queueCaughtUp && (
+              <div className="home-caughtup-card">
+                <div className="home-caughtup-top">
+                  <div className="home-caughtup-icon" aria-hidden="true">
+                    <CheckCircle2 size={22} />
+                  </div>
+                  <div className="home-caughtup-text">
+                    <h3 className="home-caughtup-title">На сегодня всё повторено</h3>
+                    <p className="home-caughtup-desc">
+                      Все стихи закреплены вовремя. Можно добавить новый отрывок или устроить
+                      дополнительную тренировку.
+                    </p>
+                  </div>
+                </div>
+                <div className="home-caughtup-actions">
+                  <Link to="/add" className="btn primary">
+                    <Plus size={16} />
+                    <span>Добавить стихи</span>
+                  </Link>
+                  <Link to="/lesson" className="btn ghost">
+                    <Play size={15} />
+                    <span>Свободная тренировка</span>
+                  </Link>
+                </div>
+              </div>
+            )
           )}
 
           {/* Секция: Пройденные уроки */}

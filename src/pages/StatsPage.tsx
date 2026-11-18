@@ -1,15 +1,34 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Award, BarChart2, BookOpen, CheckCircle2, Clock, Flame, Sparkles, TrendingUp } from 'lucide-react'
-import { useMemo } from 'react'
+import {
+  AlertCircle,
+  Award,
+  BookOpen,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  Flame,
+  Play,
+  Sparkles,
+  TrendingUp,
+  Trophy,
+} from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getBook } from '../bible/books'
 import { db, liveLessons, liveVerses } from '../db/db'
-import { isDue, STRENGTH_LABEL } from '../logic/mastery'
+import { usePreferences } from '../lib/preferences'
+import { computeActivityStats, formatDateKeyRu, getHardestVerses, HEATMAP_WEEKS } from '../logic/activity'
+import { isDue } from '../logic/mastery'
+import { pluralRu } from '../reminders/engine'
+
+const WEEKDAY_SHORT = ['Пн', '', 'Ср', '', 'Пт', '', '']
 
 export default function StatsPage() {
   const verses = useLiveQuery(() => liveVerses(), [])
   const lessons = useLiveQuery(() => liveLessons(), [])
   const reviews = useLiveQuery(() => db.reviews.toArray(), [])
+  const { dailyXpGoal } = usePreferences()
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null)
 
   const stats = useMemo(() => {
     if (!verses || !lessons || !reviews) return null
@@ -25,6 +44,9 @@ export default function StatsPage() {
     const totalXp = reviews.reduce((sum, r) => sum + (r.xp || 0), 0)
     const totalLessons = lessons.filter((l) => l.verseKeys.length > 0).length
     const totalMistakes = lessons.reduce((sum, l) => sum + (l.mistakes || 0), 0)
+
+    const activity = computeActivityStats(lessons, reviews, now)
+    const hardest = getHardestVerses(verses, 3)
 
     // Распределение по силе 0..7
     const strengthDist = Array.from({ length: 8 }, (_, s) => {
@@ -64,12 +86,20 @@ export default function StatsPage() {
       totalXp,
       totalLessons,
       totalMistakes,
+      activity,
+      hardest,
       strengthDist,
       booksList,
     }
   }, [verses, lessons, reviews])
 
   if (!stats) return null
+
+  const { activity, hardest } = stats
+  const activeDateKey = selectedDayKey ?? activity.todayKey
+  const inspectedDay =
+    activity.heatmapDays.find((d) => d.dateKey === activeDateKey && !d.isFuture) ??
+    activity.heatmapDays.find((d) => d.isToday)
 
   return (
     <div className="stats-page">
@@ -110,6 +140,144 @@ export default function StatsPage() {
         </div>
       </div>
 
+      {/* Серия дней и календарь активности */}
+      <div className="stats-section">
+        <div className="stats-section-header">СЕРИЯ И АКТИВНОСТЬ</div>
+        <div className="stats-card-group activity-card">
+          <div className="activity-summary-row">
+            <div className="activity-metric">
+              <div className={`activity-metric-icon ${activity.practicedToday ? 'lit' : 'flame'}`}>
+                <Flame size={17} />
+              </div>
+              <div>
+                <div className="activity-metric-val">
+                  {activity.currentStreak} {pluralRu(activity.currentStreak, 'день', 'дня', 'дней')}
+                </div>
+                <div className="activity-metric-label">Текущая серия</div>
+              </div>
+            </div>
+
+            <div className="activity-metric-divider" />
+
+            <div className="activity-metric">
+              <div className="activity-metric-icon trophy">
+                <Trophy size={16} />
+              </div>
+              <div>
+                <div className="activity-metric-val">
+                  {activity.bestStreak} {pluralRu(activity.bestStreak, 'день', 'дня', 'дней')}
+                </div>
+                <div className="activity-metric-label">Рекорд</div>
+              </div>
+            </div>
+
+            <div className="activity-metric-divider" />
+
+            <div className="activity-metric">
+              <div className="activity-metric-icon cal">
+                <CalendarDays size={16} />
+              </div>
+              <div>
+                <div className="activity-metric-val">{activity.activeDaysTotal}</div>
+                <div className="activity-metric-label">Активных дн.</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="activity-today-goal">
+            <span>
+              Сегодня: <strong>{activity.todayXp}</strong> / {dailyXpGoal} XP
+            </span>
+            {activity.todayXp >= dailyXpGoal && (
+              <span className="activity-goal-done-tag">Цель выполнена</span>
+            )}
+          </div>
+
+          {/* 12-недельный календарь (сетка по дням недели и неделям) */}
+          <div className="heatmap-wrap">
+            <div className="heatmap-months" style={{ gridTemplateColumns: `22px repeat(${HEATMAP_WEEKS}, minmax(0, 1fr))` }}>
+              <span />
+              {Array.from({ length: HEATMAP_WEEKS }, (_, wIdx) => {
+                const m = activity.monthLabels.find((x) => x.weekIndex === wIdx)
+                return (
+                  <span key={wIdx} className="heatmap-month-cell">
+                    {m ? m.label : ''}
+                  </span>
+                )
+              })}
+            </div>
+
+            <div className="heatmap-body">
+              <div className="heatmap-weekdays" aria-hidden="true">
+                {WEEKDAY_SHORT.map((lbl, idx) => (
+                  <span key={idx} className="heatmap-weekday-lbl">
+                    {lbl}
+                  </span>
+                ))}
+              </div>
+
+              <div
+                className="heatmap-grid"
+                style={{ gridTemplateColumns: `repeat(${HEATMAP_WEEKS}, minmax(0, 1fr))` }}
+                role="grid"
+                aria-label="Календарь активности за 12 недель"
+              >
+                {activity.heatmapDays.map((cell) => {
+                  const isSelected = inspectedDay?.dateKey === cell.dateKey
+                  return (
+                    <button
+                      key={cell.dateKey}
+                      type="button"
+                      disabled={cell.isFuture}
+                      onClick={() => setSelectedDayKey(cell.dateKey)}
+                      className={`heatmap-cell level-${cell.level} ${cell.isToday ? 'today' : ''} ${cell.isFuture ? 'future' : ''} ${isSelected ? 'selected' : ''}`}
+                      style={{
+                        gridColumnStart: cell.weekIndex + 1,
+                        gridRowStart: cell.weekday + 1,
+                      }}
+                      title={
+                        cell.isFuture
+                          ? ''
+                          : `${formatDateKeyRu(cell.dateKey)}: ${cell.lessons} ур., ${cell.xp} XP`
+                      }
+                      aria-label={
+                        cell.isFuture
+                          ? undefined
+                          : `${formatDateKeyRu(cell.dateKey)}: ${cell.xp} XP`
+                      }
+                    />
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="heatmap-footer">
+              <div className="heatmap-selected-info">
+                {inspectedDay && (
+                  <>
+                    <strong>{formatDateKeyRu(inspectedDay.dateKey)}:</strong>{' '}
+                    {inspectedDay.lessons > 0
+                      ? `${inspectedDay.lessons} ${pluralRu(inspectedDay.lessons, 'урок', 'урока', 'уроков')} · +${inspectedDay.xp} XP`
+                      : inspectedDay.xp > 0
+                      ? `+${inspectedDay.xp} XP`
+                      : 'занятий не было'}
+                  </>
+                )}
+              </div>
+              <div className="heatmap-legend" aria-hidden="true">
+                <span>Меньше</span>
+                <span className="heatmap-cell level-0" />
+                <span className="heatmap-cell level-1" />
+                <span className="heatmap-cell level-2" />
+                <span className="heatmap-cell level-3" />
+                <span className="heatmap-cell level-4" />
+                <span>Больше</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Дополнительные достижения */}
       <div className="stats-section">
         <div className="stats-section-header">ПРОГРЕСС ОБУЧЕНИЯ</div>
@@ -144,6 +312,51 @@ export default function StatsPage() {
         </div>
       </div>
 
+      {/* Сложные стихи */}
+      {hardest.length > 0 && (
+        <div className="stats-section">
+          <div className="stats-section-header">СЛОЖНЫЕ СТИХИ</div>
+          <div className="stats-card-group">
+            {hardest.map(({ verse, refLabel }, idx) => {
+              const details: string[] = []
+              if (verse.lapses > 0) {
+                details.push(`сбросов: ${verse.lapses}`)
+              }
+              if (verse.lastScore !== null) {
+                details.push(`посл. результат: ${Math.round(verse.lastScore)}%`)
+              }
+              return (
+                <div key={verse.key}>
+                  {idx > 0 && <div className="stat-row-divider" />}
+                  <div className="hard-verse-row">
+                    <div className="hard-verse-left">
+                      <div className="home-due-badge" data-strength={verse.strength}>
+                        {verse.strength}
+                      </div>
+                      <div className="hard-verse-info">
+                        <div className="hard-verse-ref">
+                          <AlertCircle size={13} className="hard-verse-alert-icon" />
+                          <span>{refLabel}</span>
+                        </div>
+                        <div className="hard-verse-meta">{details.join(' · ')}</div>
+                      </div>
+                    </div>
+                    <Link
+                      to={`/practice?keys=${verse.key}`}
+                      className="hard-verse-btn"
+                      aria-label={`Повторить ${refLabel}`}
+                    >
+                      <Play size={14} />
+                      <span>Повторить</span>
+                    </Link>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Распределение силы памяти */}
       <div className="stats-section">
         <div className="stats-section-header">РАСПРЕДЕЛЕНИЕ ПО СИЛЕ ПАМЯТИ</div>
@@ -153,8 +366,6 @@ export default function StatsPage() {
               const label =
                 item.strength === 0
                   ? 'Новые'
-                  : item.strength <= 2
-                  ? `Сила ${item.strength}`
                   : item.strength <= 5
                   ? `Сила ${item.strength}`
                   : `Сила ${item.strength} ★`

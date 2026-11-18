@@ -1,11 +1,14 @@
+import { isVibrationEnabled } from './preferences'
+
 let lastVibrateAt = 0
 const DEBOUNCE_MS = 250
 
 /**
  * Короткий тактильный отклик (40 мс) при неверном ответе.
- * Не срабатывает чаще одного раза в 250 мс и уважает prefers-reduced-motion.
+ * Не срабатывает чаще одного раза в 250 мс, уважает настройку пользователя и prefers-reduced-motion.
  */
 export function vibrateError(): void {
+  if (!isVibrationEnabled()) return
   if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return
   if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
     return
