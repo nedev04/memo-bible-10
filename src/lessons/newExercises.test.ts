@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { DAY } from '../logic/config'
-import { flattenWords } from '../logic/exercises'
 import type { VerseState } from '../types'
 import { buildBridgeQuiz, resolveBridgeMode } from './bridge'
 import { planLesson } from './generator'
 import { buildMatchPairs } from './match'
-import { buildProofreadTask, parseAiProofread } from './proofread'
 import type { BridgePoolItem, VerseText } from './types'
 
 const T0 = new Date('2026-03-10T10:00:00').getTime()
@@ -58,58 +56,6 @@ const SAMPLE_VERSE: VerseText = {
   chapterVerses: 36,
   bridgePool: POOL,
 }
-
-describe('Корректор (proofread)', () => {
-  it('валидирует кандидатов от ИИ и отбрасывает несовпадающие или некорректные слова', () => {
-    const words = flattenWords(SAMPLE_VERSE.text)
-    const parsed = parseAiProofread(
-      [
-        { wordIndex: 2, original: 'возлюбил', impostor: 'избрал', distractors: ['принял', 'полюбил', 'плохой знак!'] },
-        { wordIndex: 3, original: 'НЕВЕРНОЕ', impostor: 'человек', distractors: [] },
-        { wordIndex: 2, original: 'возлюбил', impostor: 'дубликат', distractors: [] },
-        { wordIndex: 999, original: 'нет', impostor: 'да', distractors: [] },
-      ],
-      words,
-    )
-    expect(parsed).toHaveLength(1)
-    expect(parsed[0].original).toBe('возлюбил')
-    expect(parsed[0].impostor).toBe('избрал')
-    expect(parsed[0].distractors).toEqual(['избрал', 'принял', 'полюбил'])
-  })
-
-  it('уровень 1: 1 ошибка (офлайн), текст всегда содержит ошибку', () => {
-    const task = buildProofreadTask(SAMPLE_VERSE.text, SAMPLE_VERSE.chapterText, 1, undefined, seeded(1))
-    expect(task.slots).toHaveLength(1)
-    expect(task.slots[0].impostor).not.toBe(task.slots[0].original)
-  })
-
-  it('уровень 2: 3 варианта замены, среди которых есть верное слово и само слово-ошибка', () => {
-    const task = buildProofreadTask(SAMPLE_VERSE.text, SAMPLE_VERSE.chapterText, 2, undefined, seeded(2))
-    expect(task.slots).toHaveLength(1)
-    const slot = task.slots[0]
-    expect(slot.options).toHaveLength(3)
-    expect(slot.options).toContain(slot.original)
-    expect(slot.options).toContain(slot.impostor)
-  })
-
-  it('уровень 3: 4 варианта замены и 2 ошибки для длинного стиха; использует ИИ-кандидатов, если они переданы', () => {
-    const words = flattenWords(SAMPLE_VERSE.text)
-    const ai = parseAiProofread(
-      [
-        { wordIndex: 2, original: 'возлюбил', impostor: 'избрал', distractors: ['полюбил', 'принял', 'увидел'] },
-        { wordIndex: 4, original: 'мир', impostor: 'свет', distractors: ['покой', 'дом', 'век'] },
-      ],
-      words,
-    )
-    const task = buildProofreadTask(SAMPLE_VERSE.text, SAMPLE_VERSE.chapterText, 3, ai, seeded(3))
-    expect(task.slots).toHaveLength(2)
-    expect(task.slots[0].impostor).toBe('избрал')
-    expect(task.slots[0].options).toHaveLength(4)
-    expect(task.slots[0].options).toContain('возлюбил')
-    expect(task.slots[0].options).toContain('избрал')
-    expect(task.slots[1].options).toHaveLength(4)
-  })
-})
 
 describe('Мостик (bridge)', () => {
   it('уровень 1: ссылка → 4 варианта начала стихов', () => {
@@ -180,7 +126,7 @@ describe('Соответствие (matchRefs)', () => {
 })
 
 describe('Планировщик: ИИ-упражнения не первые, Мостик и Соответствие при 4+ стихах, урок не раздувается', () => {
-  it('первый шаг урока не использует ИИ (proofread / fillGaps), даже если стихи в повторении', () => {
+  it('первый шаг урока не использует ИИ (fillGaps), даже если стихи в повторении', () => {
     const fourVerses = [
       verseState('jhn', 3, 16, 3),
       verseState('rom', 8, 28, 4),
@@ -191,7 +137,7 @@ describe('Планировщик: ИИ-упражнения не первые, �
     let sawMatch = false
     for (let i = 1; i <= 50; i++) {
       const steps = planLesson(fourVerses, T0, seeded(i))
-      expect(['proofread', 'fillGaps']).not.toContain(steps[0].kind)
+      expect(steps[0].kind).not.toBe('fillGaps')
       expect(steps.length).toBeLessThanOrEqual(13)
       if (steps.some((s) => s.kind === 'bridge')) sawBridge = true
       if (steps.some((s) => s.kind === 'matchRefs')) sawMatch = true
@@ -204,7 +150,7 @@ describe('Планировщик: ИИ-упражнения не первые, �
     for (const s of [1, 2, 3, 4, 5]) {
       for (let i = 1; i <= 30; i++) {
         const steps = planLesson([verseState('mat', 5, 7, s)], T0, seeded(i))
-        expect(['proofread', 'fillGaps']).not.toContain(steps[0].kind)
+        expect(steps[0].kind).not.toBe('fillGaps')
       }
     }
   })

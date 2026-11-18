@@ -370,6 +370,14 @@ export default function VersesPage() {
                       const text = getGroupSnippet(g)
                       const isFav = !!favorites[label]
                       const badgeText = g.from === g.to ? `${g.from}` : `${g.from}–${g.to}`
+                      const badgeSizeClass =
+                        badgeText.length >= 6
+                          ? 'verse-num-badge badge-xs'
+                          : badgeText.length === 5
+                          ? 'verse-num-badge badge-sm'
+                          : badgeText.length === 4
+                          ? 'verse-num-badge badge-md'
+                          : 'verse-num-badge'
                       const isDueNow = isDue({ nextReviewAt: g.soonest }, now)
 
                       return (
@@ -381,7 +389,7 @@ export default function VersesPage() {
                           tabIndex={0}
                         >
                           {/* Кружок слева: номер стиха или диапазон "2–5" (центрирован по вертикали) */}
-                          <div className="verse-num-badge">{badgeText}</div>
+                          <div className={badgeSizeClass}>{badgeText}</div>
 
                           {/* Основное содержимое */}
                           <div className="verse-row-content">

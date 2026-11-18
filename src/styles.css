@@ -840,26 +840,41 @@ html[data-theme="light"] .today-stat-divider {
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.75rem;
   cursor: pointer;
   overflow: hidden;
 }
 
 .home-due-badge {
+  --due-color: #64748b;
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) 25%, transparent);
-  color: var(--accent-light);
-  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--due-color) 20%, transparent);
+  color: var(--due-color);
+  border: 1px solid var(--due-color);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 0.78rem;
   flex-shrink: 0;
-  margin-top: 2px;
+}
+
+.home-due-badge[data-strength="0"] { --due-color: #64748b; }
+.home-due-badge[data-strength="1"] { --due-color: #fb923c; }
+.home-due-badge[data-strength="2"] { --due-color: #f59e0b; }
+.home-due-badge[data-strength="3"] { --due-color: #84cc16; }
+.home-due-badge[data-strength="4"] { --due-color: #22c55e; }
+.home-due-badge[data-strength="5"] { --due-color: #10b981; }
+.home-due-badge[data-strength="6"] { --due-color: #0ea5e9; }
+.home-due-badge[data-strength="7"] { --due-color: #2563eb; }
+
+:root:not(.light):not([data-theme="light"]) .home-due-badge[data-strength="7"],
+html.dark .home-due-badge[data-strength="7"],
+html[data-theme="dark"] .home-due-badge[data-strength="7"] {
+  --due-color: #3b82f6;
 }
 
 .home-due-content {
@@ -1194,12 +1209,12 @@ html[data-theme="light"] .today-stat-divider {
   border-color: var(--line-strong);
 }
 
-/* Кружок или капсула слева: для одного номера или диапазона "2–5", центрирован по вертикали */
+/* Кружок слева: всегда круглый 36x36, для длинных диапазонов (4+ символа) уменьшается шрифт */
 .verse-num-badge {
-  min-width: 36px;
+  width: 36px;
   height: 36px;
-  padding: 0 0.4rem;
-  border-radius: 999px;
+  padding: 0 2px;
+  border-radius: 50%;
   background: linear-gradient(135deg, #1d4ed8, #2563eb);
   color: #ffffff;
   display: flex;
@@ -1207,12 +1222,30 @@ html[data-theme="light"] .today-stat-divider {
   justify-content: center;
   font-weight: 700;
   font-size: 0.82rem;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
   flex-shrink: 0;
   align-self: center;
   margin-top: 0;
   letter-spacing: -0.02em;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
   box-sizing: border-box;
+}
+
+.verse-num-badge.badge-md {
+  font-size: 0.68rem;
+  letter-spacing: -0.03em;
+}
+
+.verse-num-badge.badge-sm {
+  font-size: 0.58rem;
+  letter-spacing: -0.04em;
+}
+
+.verse-num-badge.badge-xs {
+  font-size: 0.48rem;
+  letter-spacing: -0.04em;
 }
 
 .verse-row-content {
@@ -2558,48 +2591,8 @@ html[data-theme="light"] .options .option-choice-btn {
 }
 
 /* ========================================================
-   НОВЫЕ УПРАЖНЕНИЯ: КОРРЕКТОР, МОСТИК И СООТВЕТСТВИЕ
+   НОВЫЕ УПРАЖНЕНИЯ: МОСТИК И СООТВЕТСТВИЕ
    ======================================================== */
-
-/* Корректор: слова выглядят как единый текст без выдающих подсказок */
-.proof-word-wrap {
-  display: inline;
-}
-
-.proof-word {
-  font: inherit;
-  line-height: inherit;
-  color: inherit;
-  background: transparent;
-  border: none;
-  padding: 0.04em 0.1em;
-  margin: -0.04em -0.1em;
-  border-radius: 5px;
-  cursor: pointer;
-  text-align: inherit;
-  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.proof-word:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ink) 8%, transparent);
-}
-
-.proof-word.cur {
-  background: var(--mark);
-  color: var(--mark-ink, #1e293b);
-  box-shadow: 0 0 0 2px var(--mark);
-}
-
-.proof-word.genuine-bad {
-  background: color-mix(in srgb, var(--bad) 22%, transparent);
-  color: var(--bad);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bad) 30%, transparent);
-}
-
-.proof-word:disabled {
-  cursor: default;
-}
 
 /* Мостик: связь ссылки и фрагмента стиха */
 .bridge-ref-hero {

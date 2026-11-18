@@ -185,7 +185,6 @@ type Candidate = Pick<LessonStep, 'kind' | 'settings' | 'verseKeys'>
 
 const where = (v: VerseState, levels: 1 | 2 | 3): Candidate => ({ kind: 'whereWritten', verseKeys: [v.key], settings: { levels } })
 const letters = (v: VerseState, hintLevel: 1 | 2 | 3): Candidate => ({ kind: 'firstLetters', verseKeys: [v.key], settings: { hintLevel } })
-const proofread = (v: VerseState, proofLevel: 1 | 2 | 3): Candidate => ({ kind: 'proofread', verseKeys: [v.key], settings: { proofLevel } })
 
 export function bridgeLevelForStrength(strength: number): 1 | 2 | 3 {
   if (strength <= 2) return 1
@@ -193,13 +192,7 @@ export function bridgeLevelForStrength(strength: number): 1 | 2 | 3 {
   return 3
 }
 
-export function proofLevelForStrength(strength: number): 1 | 2 | 3 {
-  if (strength <= 1) return 1
-  if (strength <= 4) return 2
-  return 3
-}
-
-const isAiStep = (c: Pick<Candidate, 'kind'>) => c.kind === 'proofread' || c.kind === 'fillGaps'
+const isAiStep = (c: Pick<Candidate, 'kind'>) => c.kind === 'fillGaps'
 
 /**
  * Упражнения для одного стиха, который уже учится: дополнительные и «главное»
@@ -218,19 +211,19 @@ function reviewSteps(v: VerseState, all: VerseState[], rng: Rng, now: number, ct
   let others: Candidate[]
   if (s <= 1) {
     gates = [c('fillGaps', gapSettings(s)), ...(parts ? [parts] : [])]
-    others = [c('partial', partialSettings(s)), where(v, 1), letters(v, 1), proofread(v, 1), ...(parts ? [parts] : [])]
+    others = [c('partial', partialSettings(s)), where(v, 1), letters(v, 1), ...(parts ? [parts] : [])]
   } else if (s === 2) {
-    gates = [c('assemble', { pieces: 6 }), letters(v, 2), proofread(v, 2), ...(parts ? [parts] : [])]
-    others = [c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), letters(v, 1), proofread(v, 2), ...(parts ? [parts] : [])]
+    gates = [c('assemble', { pieces: 6 }), letters(v, 2), ...(parts ? [parts] : [])]
+    others = [c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), letters(v, 1), ...(parts ? [parts] : [])]
   } else if (s === 3) {
-    gates = [c('assemble', { pieces: 9 }), letters(v, 3), proofread(v, 2), ...(parts ? [parts, parts] : [])]
-    others = [where(v, 2), c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), letters(v, 2), proofread(v, 2), ...(parts ? [parts] : [])]
+    gates = [c('assemble', { pieces: 9 }), letters(v, 3), ...(parts ? [parts, parts] : [])]
+    others = [where(v, 2), c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), letters(v, 2), ...(parts ? [parts] : [])]
   } else if (s === 4) {
-    gates = [c('assemble', { pieces: 12 }), letters(v, 3), proofread(v, 2), ...(parts ? [parts, parts] : [])]
-    others = [c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), where(v, 3), proofread(v, 2), ...(parts ? [parts] : [])]
+    gates = [c('assemble', { pieces: 12 }), letters(v, 3), ...(parts ? [parts, parts] : [])]
+    others = [c('fillGaps', gapSettings(s)), c('partial', partialSettings(s)), where(v, 3), ...(parts ? [parts] : [])]
   } else {
-    gates = [c('fillGaps', gapSettings(s)), letters(v, 3), proofread(v, 3), ...(parts ? [parts] : [])]
-    others = [where(v, 3), c('assemble', { pieces: 14 }), c('partial', partialSettings(s)), proofread(v, 3), ...(parts ? [parts] : [])]
+    gates = [c('fillGaps', gapSettings(s)), letters(v, 3), ...(parts ? [parts] : [])]
+    others = [where(v, 3), c('assemble', { pieces: 14 }), c('partial', partialSettings(s)), ...(parts ? [parts] : [])]
   }
 
   if (shouldSkipWhere(v.book, ctx.recentWhere, rng)) others = others.filter((o) => o.kind !== 'whereWritten')
@@ -479,7 +472,7 @@ export function planLesson(
     if (typing) out.push(typing)
   }
 
-  // Упражнения с ИИ (Корректор / Пропуски) никогда не должны быть самыми первыми, чтобы старт урока был мгновенным
+  // Упражнения с ИИ (Пропуски) никогда не должны быть самыми первыми, чтобы старт урока был мгновенным
   if (out.length > 1 && isAiStep(out[0])) {
     const firstFastIdx = out.findIndex((s, i) => i > 0 && !isAiStep(s) && s.kind !== 'typing')
     if (firstFastIdx > 0) {

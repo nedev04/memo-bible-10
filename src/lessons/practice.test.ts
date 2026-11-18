@@ -48,7 +48,7 @@ describe('тренировка', () => {
     expect(buildPracticeSteps(option('reveal'), 5, keys.slice(0, 1))[0].settings).toEqual({ chunk: 2 })
     expect(option('reveal').scored).toBe(false)
     expect(option('partial').scored).toBe(false)
-    expect(PRACTICE_OPTIONS.filter((o) => o.scored)).toHaveLength(9)
+    expect(PRACTICE_OPTIONS.filter((o) => o.scored)).toHaveLength(8)
   })
 
   it('planVersePractice генерирует 5–8 разнообразных упражнений, подогнанных под силу стиха', () => {
@@ -60,30 +60,28 @@ describe('тренировка', () => {
 
     const library4 = [makeVerse(2, 1), makeVerse(2, 2), makeVerse(2, 3), makeVerse(2, 4)]
 
-    // Новый стих (сила 0): 7-8 упражнений, начинается с раскрытия
+    // Новый стих (сила 0): 5-8 упражнений, начинается с раскрытия
     const v0Steps = planVersePractice([makeVerse(0)], [makeVerse(0)], seeded(1))
     expect(v0Steps.length).toBeGreaterThanOrEqual(5)
     expect(v0Steps.length).toBeLessThanOrEqual(8)
     expect(v0Steps[0].kind).toBe('reveal')
     expect(v0Steps.some((s) => s.kind === 'partial')).toBe(true)
     expect(v0Steps.some((s) => s.kind === 'fillGaps')).toBe(true)
-    expect(v0Steps.some((s) => s.kind === 'proofread')).toBe(true)
 
-    // Сила 3 (средний уровень): 7-8 упражнений, включает «Мостик» при наличии 4+ стихов
+    // Сила 3 (средний уровень): 5-8 упражнений, включает «Мостик» при наличии 4+ стихов
     const v3Steps = planVersePractice([makeVerse(3)], library4, seeded(2))
     expect(v3Steps.length).toBeGreaterThanOrEqual(5)
     expect(v3Steps.length).toBeLessThanOrEqual(8)
     expect(v3Steps.some((s) => s.kind === 'firstLetters')).toBe(true)
     expect(v3Steps.some((s) => s.kind === 'bridge' && s.settings.bridgeLevel === 2)).toBe(true)
-    expect(['proofread', 'fillGaps']).not.toContain(v3Steps[0].kind)
+    expect(v3Steps[0].kind).not.toBe('fillGaps')
 
-    // Сила 6 (высокий уровень): 7 упражнений, включает сложное «Мостик» / «Корректор»
+    // Сила 6 (высокий уровень): 5-8 упражнений, включает сложное «Мостик»
     const v6Steps = planVersePractice([makeVerse(6)], library4, seeded(3))
     expect(v6Steps.length).toBeGreaterThanOrEqual(5)
     expect(v6Steps.length).toBeLessThanOrEqual(8)
     expect(v6Steps.some((s) => s.kind === 'typing')).toBe(true)
-    expect(v6Steps.some((s) => s.kind === 'proofread' && s.settings.proofLevel === 3)).toBe(true)
     expect(v6Steps.some((s) => s.kind === 'bridge' && s.settings.bridgeLevel === 3)).toBe(true)
-    expect(['proofread', 'fillGaps']).not.toContain(v6Steps[0].kind)
+    expect(v6Steps[0].kind).not.toBe('fillGaps')
   })
 })

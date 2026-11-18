@@ -292,7 +292,9 @@ export default function TodayPage() {
                         role="button"
                         tabIndex={0}
                       >
-                        <div className="home-due-badge">{g.minStrength}</div>
+                        <div className="home-due-badge" data-strength={g.minStrength}>
+                          {g.minStrength}
+                        </div>
                         <div className="home-due-content">
                           <div className="home-due-title">{label}</div>
                           <div className="home-due-snippet">{text}</div>
